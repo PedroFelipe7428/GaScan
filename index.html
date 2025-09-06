@@ -205,15 +205,26 @@
                 'Hélio': '#F78918',
                 'Acetileno': '#643030',
                 'Ar Sintético': '#009048',
-                'Misturas Carbogênicas': '#009048',
+                'Mistura Carbogênica': '#009048',
                 'Mistura Co2 em Argônio': '#3B2724',
                 'Nitrogênio em Argônio': '#3B2724',
                 'Oxigênio em Argônio': '#3B2724',
                 'Oxigênio em Hélio': '#F78918',
                 'Hidrogênio': '#9CA3AF',
                 'Propano': '#6B7280',
-                'Etileno': '#525252'
+                'Etileno': '#525252',
+                'GOURMET®': '#A7C93D', // Adicionado com base na pesquisa
+                'Hexafluoreto de enxofre': '#6D427B',
+                'Krypton': '#006B3C',
+                'Neon': '#F2C335',
+                'Xenon': '#0085A6',
+                'Corte Lítio': '#C1272D',
+                'Corte Alumínio': '#F7941D',
+                'Mistura CO2/N2': '#A7C93D',
+                'Mistura Argônio/Hélio': '#3B2724',
+                'Mistura Argônio/CO2/N2': '#A7C93D'
             };
+            
 
             const showMessage = (text, showConfirm = false, showSpinner = false) => {
                 messageText.innerHTML = '';
@@ -331,30 +342,40 @@
                 
                 const base64ImageData = overlayCanvas.toDataURL('image/jpeg').split(',')[1];
                 
-                const detailedPrompt = `Com base na norma brasileira (ABNT NBR 12791), a calota do cilindro de gás possui cores padronizadas. Analise a imagem e identifique o tipo de gás com base na cor da calota. Seja absolutamente rigoroso na sua identificação, prestando atenção aos detalhes da cor.
+                const detailedPrompt = `Com base na norma brasileira (ABNT NBR 12791) e no catálogo completo da Messer Gases, identifique o tipo de gás com base na cor da calota do cilindro. A identificação deve ser rigorosa e precisa.
 
-- **Oxigênio (Industrial):** Calota **preta**, uniforme, escura e fosca.
-- **Oxigênio (Medicinal):** Calota **branca-neve** ou branco puríssimo. É uma cor limpa e, em geral, brilhante.
-- **Argônio:** Calota **marrom-escura**, quase preta. É uma cor terrosa e profunda.
-- **Nitrogênio:** Calota **cinza-clara** ou cinza-pérola. É uma cor neutra e sem brilho.
-- **Ar Comprimido:** Calota **azul-escura** ou azul-royal.
-- **Dióxido de Carbono:** Calota **cinza-escura**, mais escura que o nitrogênio e com um tom mais fechado.
-- **Óxido Nitroso:** Calota **azul-marinho** ou azul-chumbo. Um azul muito escuro.
-- **Hélio:** Calota **laranja-viva** ou amarela-clara.
-- **Acetileno:** Calota **vermelho-escuro** ou vinho.
-- **Ar Sintético:** Calota **verde-claro** ou verde-bandeira. É uma cor viva, distintiva e jamais deve ser confundida com o branco-neve do oxigênio medicinal.
-- **Misturas Carbogênicas:** Calota **verde-claro**, idêntica ao Ar Sintético.
-- **Mistura Co2 em Argônio:** Calota **marrom-escura**, idêntica ao Argônio.
-- **Nitrogênio em Argônio:** Calota **marrom-escura**, idêntica ao Argônio.
-- **Oxigênio em Argônio:** Calota **marrom-escura**, idêntica ao Argônio.
-- **Oxigênio em Hélio:** Calota **laranja-viva** ou amarela-clara, idêntica ao Hélio.
-- **Hidrogênio:** Calota **cinza-escura** ou preta, podendo ter uma faixa branca no topo.
-- **Propano:** Calota **cinza-clara** ou cinza-escura, mas pode ter uma faixa laranja.
-- **Etileno:** Calota **cinza-clara** ou cinza-escura.
+**Gases Medicinais:**
+- **Oxigênio Medicinal:** Calota **branca**.
+- **Óxido Nitroso Medicinal:** Calota **azul-marinho**.
+- **Ar Medicinal Comprimido:** Calota **azul-marada** com anel **branco**.
 
-**Instrução de precisão:** Considere a iluminação da foto, mas se concentre no tom puro da cor da calota. Evite misturar tons, por exemplo, não confunda verde com cinza, mesmo em fotos de baixa qualidade. Se a cor for verde-claro, o gás é Ar Sintético. Se for branco, o gás é Oxigênio Medicinal. Não há cinza esverdeado ou branco esverdeado.
+**Gases Industriais:**
+- **Acetileno:** Calota **vermelha**.
+- **Argônio:** Calota **marrom**.
+- **Dióxido de Carbono (CO2):** Calota **cinza**.
+- **Hélio:** Calota **laranja**.
+- **Hidrogênio:** Calota **cinza-escuro**.
+- **Nitrogênio:** Calota **cinza-clara**.
+- **Oxigênio (Industrial):** Calota **preta**.
+- **Propano:** Calota **cinza-clara** com uma faixa **laranja**.
+- **Etileno:** Calota **vermelho-vinho**.
 
-Qual o gás mais provável na imagem? Responda **apenas com um objeto JSON** com duas chaves: "gas_type" (o tipo de gás) e "confidence" (o nível de confiança em uma escala de 0 a 1). O valor de "gas_type" deve ser um dos seguintes: ${Object.keys(gasColors).join(', ')}. Exemplo: {"gas_type": "Argônio", "confidence": 0.95}.`;
+**Gases Especiais e Misturas (incluindo Gourmet):**
+- **GOURMET® (Misturas CO2/N2):** Calota **verde-limão** ou verde **Messer**.
+- **Argônio Ultra Puro:** Calota **marrom** com uma faixa **branca**.
+- **Hexafluoreto de Enxofre:** Calota **roxa**.
+- **Krypton:** Calota **verde-esmeralda**.
+- **Neon:** Calota **amarela-sol**.
+- **Xenon:** Calota **azul-petróleo**.
+- **Corte Lítio:** Calota **vermelho-cobre**.
+- **Corte Alumínio:** Calota **laranja**.
+- **Mistura Carbogênica (CO2/Argônio):** Calota **verde-limão** ou verde **Messer**.
+- **Mistura CO2/N2:** Calota **verde-limão** ou verde **Messer**.
+- **Mistura Argônio/Hélio:** Calota **marrom** com uma faixa **laranja**.
+- **Mistura Argônio/CO2/N2:** Calota **verde-limão** ou verde **Messer**.
+
+**Instrução de precisão:** Olhe atentamente a cor da calota do cilindro. Ignorando a iluminação, qual das cores e gases acima melhor corresponde?
+Responda **apenas com um objeto JSON** com duas chaves: "gas_type" (o tipo de gás) e "confidence" (o nível de confiança em uma escala de 0 a 1). O valor de "gas_type" deve ser um dos seguintes: ${Object.keys(gasColors).join(', ')}. Exemplo: {"gas_type": "GOURMET®", "confidence": 0.98}.`;
                 
                 try {
                     const response = await fetch(API_URL, {
