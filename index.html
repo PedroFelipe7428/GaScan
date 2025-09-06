@@ -72,6 +72,9 @@
                 opacity: 1;
             }
         }
+        .result-card {
+            @apply p-4 rounded-xl shadow-lg flex-1 min-w-[200px] text-left;
+        }
     </style>
 </head>
 <body class="p-4 sm:p-8">
@@ -114,7 +117,7 @@
     
             <section id="results-section" class="mt-8 w-full">
                 <h2 class="text-2xl font-bold mb-4" style="color: #004B8D;">Contagem em Tempo Real</h2>
-                <div id="results-list" class="flex flex-col sm:flex-row flex-wrap justify-center items-center gap-4"></div>
+                <div id="results-list" class="flex flex-wrap justify-center items-center gap-4"></div>
             </section>
         </section>
 
@@ -142,7 +145,25 @@
             let model = null;
             let stream = null;
             let animationFrameId = null;
+            
+            // Variável para armazenar o estado de carregamento do modelo
+            let modelLoaded = false;
 
+            // Mapeamento de cores dos gases (normas da indústria)
+            // A tolerância de cor é crucial para detectar cilindros desgastados
+            const gasColors = {
+                'Oxigênio (Medicinal)': { color: [0, 144, 72], tolerance: 50, hex: '#009048' }, // Verde
+                'Oxigênio (Industrial)': { color: [0, 0, 0], tolerance: 50, hex: '#000000' }, // Preto
+                'Nitrogênio': { color: [197, 196, 191], tolerance: 50, hex: '#C5C4BF' }, // Cinza
+                'Argônio': { color: [59, 39, 36], tolerance: 50, hex: '#3B2724' }, // Marrom
+                'Ar Comprimido': { color: [0, 107, 178], tolerance: 50, hex: '#006BB2' }, // Azul
+                'Hélio': { color: [247, 137, 24], tolerance: 50, hex: '#F78918' }, // Laranja
+                'Dióxido de Carbono': { color: [88, 88, 88], tolerance: 50, hex: '#585858' }, // Cinza Escuro
+                'Óxido Nitroso': { color: [64, 76, 92], tolerance: 50, hex: '#404C5C' }, // Azul Marinho
+                'Acetileno': { color: [100, 48, 48], tolerance: 50, hex: '#643030' }, // Marrom Avermelhado
+            };
+            
+            // Função para exibir mensagens na caixa de diálogo
             const showMessage = (text) => {
                 messageText.textContent = text;
                 messageBox.classList.remove('hidden');
@@ -156,9 +177,10 @@
 
             // Inicia a câmera e o modelo
             const startCameraAndModel = async () => {
+                showMessage("Carregando o modelo de detecção de objetos. Por favor, aguarde...");
                 try {
-                    showMessage("Carregando o modelo de detecção de objetos. Por favor, aguarde...");
                     model = await cocoSsd.load();
+                    modelLoaded = true;
                     hideMessage();
                     
                     stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
@@ -172,13 +194,18 @@
                     };
                 } catch (err) {
                     console.error("Erro ao acessar a câmera ou carregar o modelo: ", err);
-                    showMessage("Não foi possível acessar a câmera ou carregar o modelo. Verifique as permissões e sua conexão.");
+                    
+                    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                        showMessage("Acesso à câmera negado. Por favor, permita o acesso nas configurações do seu navegador e recarregue a página.");
+                    } else {
+                        showMessage("Não foi possível acessar a câmera ou carregar o modelo. Verifique as permissões e sua conexão.");
+                    }
                 }
             };
             
             // Loop de animação para análise de vídeo e detecção de objetos
             const animate = async () => {
-                if (video.readyState === 4 && model) {
+                if (video.readyState === 4 && modelLoaded) {
                     const predictions = await model.detect(video);
                     drawPredictions(predictions);
                 }
@@ -194,13 +221,16 @@
                     const [x, y, width, height] = prediction.bbox;
                     const className = prediction.class;
                     
+                    // O modelo detecta 'bottle', 'cup' ou 'vase' para objetos cilíndricos
                     if (className === 'bottle' || className === 'cup' || className === 'vase') {
                         const cylinderType = classifyCylinder(x, y, width, height);
                         if (cylinderType) {
+                            // Desenha o quadrado
                             ctx.strokeStyle = cylinderType.hex;
                             ctx.lineWidth = 4;
                             ctx.strokeRect(x, y, width, height);
 
+                            // Adiciona o texto
                             ctx.fillStyle = cylinderType.hex;
                             ctx.font = '20px Montserrat';
                             ctx.textAlign = 'left';
@@ -213,12 +243,14 @@
                 updateResults(counts);
             };
 
+            // Função de classificação de cilindro baseada na cor do ombro
             const classifyCylinder = (x, y, width, height) => {
                 const ctx = overlayCanvas.getContext('2d');
-                // Pega uma amostra de cor da área do ombro (parte superior) do cilindro
+                
+                // Análise de uma área maior para mais robustez (10x10 pixels)
                 const sampleSize = 10;
                 const sampleX = x + width / 2;
-                const sampleY = y + (height * 0.1); // 10% do topo da caixa
+                const sampleY = y + (height * 0.1); // Pega a amostra a 10% do topo da caixa (o "ombro")
                 const pixelData = ctx.getImageData(sampleX, sampleY, sampleSize, sampleSize).data;
                 
                 let sumR = 0, sumG = 0, sumB = 0;
@@ -229,21 +261,9 @@
                 }
                 const [r, g, b] = [sumR / (sampleSize * sampleSize), sumG / (sampleSize * sampleSize), sumB / (sampleSize * sampleSize)];
                 
-                // Mapeamento de cores dos gases (normas da indústria)
-                const gasColors = {
-                    'Oxigênio (Medicinal)': { color: [0, 144, 72], tolerance: 50, hex: '#009048' }, // Verde
-                    'Oxigênio (Industrial)': { color: [0, 0, 0], tolerance: 50, hex: '#000000' }, // Preto
-                    'Nitrogênio': { color: [197, 196, 191], tolerance: 50, hex: '#C5C4BF' }, // Cinza
-                    'Argônio': { color: [59, 39, 36], tolerance: 50, hex: '#3B2724' }, // Marrom
-                    'Ar Comprimido': { color: [0, 107, 178], tolerance: 50, hex: '#006BB2' }, // Azul
-                    'Hélio': { color: [247, 137, 24], tolerance: 50, hex: '#F78918' }, // Laranja
-                    'Dióxido de Carbono': { color: [88, 88, 88], tolerance: 50, hex: '#585858' }, // Cinza Escuro
-                    'Óxido Nitroso': { color: [64, 76, 92], tolerance: 50, hex: '#404C5C' }, // Azul Marinho
-                    'Acetileno': { color: [100, 48, 48], tolerance: 50, hex: '#643030' }, // Marrom Avermelhado
-                };
-
                 for (const gasName in gasColors) {
                     const gas = gasColors[gasName];
+                    // Compara a cor média da amostra com as cores de referência
                     if (Math.abs(r - gas.color[0]) <= gas.tolerance &&
                         Math.abs(g - gas.color[1]) <= gas.tolerance &&
                         Math.abs(b - gas.color[2]) <= gas.tolerance) {
@@ -258,7 +278,7 @@
                 for (const gas in counts) {
                     if (counts[gas] > 0) {
                          const resultItem = document.createElement('div');
-                         resultItem.className = 'flex items-center space-x-2 p-3 rounded-lg shadow-sm w-full sm:w-auto transition-all duration-300';
+                         resultItem.className = 'result-card flex-1';
                          
                          // Usa um fallback se a cor do gás não estiver definida
                          const gasColor = gasColors[gas] ? gasColors[gas].hex : '#4B5563';
@@ -267,12 +287,12 @@
                          resultItem.style.backgroundColor = gasColor;
                          resultItem.style.color = textColor;
 
-                         const countElement = document.createElement('span');
-                         countElement.className = 'text-2xl font-bold';
+                         const countElement = document.createElement('h3');
+                         countElement.className = 'text-2xl font-bold mb-1';
                          countElement.textContent = counts[gas];
 
-                         const nameElement = document.createElement('span');
-                         nameElement.className = 'text-xl font-medium';
+                         const nameElement = document.createElement('p');
+                         nameElement.className = 'text-lg font-medium';
                          nameElement.textContent = gas;
 
                          resultItem.appendChild(countElement);
