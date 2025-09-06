@@ -183,7 +183,11 @@
             const confirmNoBtn = document.getElementById('confirm-no-btn');
             const totalCountSpan = document.getElementById('total-count');
 
-            const apiKey = ""; // INSIRA SUA CHAVE DE API AQUI
+            //
+            // VOCÊ DEVE INSERIR SUA CHAVE DE API AQUI PARA QUE O APP FUNCIONE.
+            // VOCÊ PODE OBTER UMA CHAVE GRATUITA EM: https://aistudio.google.com/app/apikey
+            //
+            const apiKey = "AIzaSyCwadVjCBih0WnbPeFagecSghPnn400yjw";
             const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`;
 
             let model = null;
