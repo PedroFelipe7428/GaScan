@@ -183,7 +183,7 @@
             const confirmNoBtn = document.getElementById('confirm-no-btn');
             const totalCountSpan = document.getElementById('total-count');
 
-            const apiKey = "";
+            const apiKey = ""; // INSIRA SUA CHAVE DE API AQUI
             const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`;
 
             let model = null;
@@ -337,7 +337,7 @@
                         body: JSON.stringify({
                             contents: [{
                                 parts: [
-                                    { text: `Qual o tipo de gás deste cilindro, baseado na cor da calota? A imagem mostra um cilindro de gás da Messer. Responda com o nome do gás mais provável.` },
+                                    { text: `A imagem mostra a parte superior de um cilindro de gás da Messer. Baseado na cor da calota, qual o tipo de gás? Responda **apenas com um objeto JSON** com duas chaves: "gas_type" (o tipo de gás) e "confidence" (o nível de confiança em uma escala de 0 a 1). O valor de "gas_type" deve ser um dos seguintes: ${Object.keys(gasColors).join(', ')}. Exemplo: {"gas_type": "Argônio", "confidence": 0.95}.` },
                                     { inlineData: { mimeType: "image/jpeg", data: base64ImageData } }
                                 ]
                             }]
@@ -350,24 +350,22 @@
                     }
 
                     const result = await response.json();
-                    const detectedGas = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-                    
-                    if (detectedGas) {
-                        const gasFound = Object.keys(gasColors).find(gasName => detectedGas.toLowerCase().includes(gasName.toLowerCase()));
-                        
-                        if (gasFound) {
-                            confirmedGas = gasFound;
-                            showMessage(`Cilindro detectado: **${confirmedGas}**. Deseja adicionar à contagem?`, true);
-                        } else {
-                            showMessage("Nenhum cilindro detectado. O resultado da análise não corresponde a um gás conhecido.");
-                        }
+                    let responseText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+                    responseText = responseText.replace(/```json|```/g, '').trim();
+
+                    const parsedResult = JSON.parse(responseText);
+
+                    if (parsedResult && parsedResult.gas_type && gasColors.hasOwnProperty(parsedResult.gas_type)) {
+                        confirmedGas = parsedResult.gas_type;
+                        const confidence = Math.round(parsedResult.confidence * 100);
+                        showMessage(`Cilindro detectado: **${confirmedGas}** (Confiança: ${confidence}%). Deseja adicionar à contagem?`, true);
                     } else {
-                        showMessage("Nenhum cilindro detectado. Por favor, posicione melhor a câmera e tente novamente.");
+                        throw new Error('Formato de resposta inválido ou gás não reconhecido.');
                     }
 
                 } catch (err) {
                     console.error("Erro ao chamar a API de Visão: ", err);
-                    showMessage("Erro na análise. Verifique sua conexão ou tente novamente.");
+                    showMessage("Erro na análise. Verifique sua chave de API, sua conexão ou tente novamente. " + err.message);
                 }
             };
             
