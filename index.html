@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GaScan - Contador de Cilindros</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-color: #f3f4f6;
+            color: #1f2937;
+        }
+        .container {
+            max-width: 900px;
+            margin: auto;
+        }
+        .btn {
+            background: linear-gradient(145deg, #E3302B, #B82522);
+            @apply px-10 py-5 rounded-full font-bold transition-all duration-300 transform hover:scale-105 shadow-xl;
+        }
+        .btn:hover {
+            box-shadow: 0 8px 15px rgba(227, 48, 43, 0.4);
+        }
+        #video-feed {
+            border: 2px solid #ccc;
+            width: 100%;
+            height: auto;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        #overlay-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        .logo-svg {
+            animation: pulse-logo 2s infinite;
+        }
+        @keyframes pulse-logo {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+        }
+        .fade-in {
+            animation: fadeIn 1s ease-in;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+        .slide-up {
+            animation: slideUp 1s ease-out;
+        }
+        @keyframes slideUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8">
+    <div class="container bg-white rounded-2xl shadow-xl p-6 sm:p-10 text-center">
+        
+        <!-- Tela de Boas-vindas -->
+        <section id="welcome-screen" class="fade-in flex flex-col items-center justify-center min-h-[50vh]">
+            <svg class="logo-svg w-40 h-40 mb-6" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Cilindro de Gás Estilizado -->
+                <rect x="35" y="10" width="30" height="80" rx="15" fill="#004B8D"/>
+                <!-- Ombro do Cilindro (cor de gás) -->
+                <circle cx="50" cy="18" r="14" fill="#E3302B"/>
+                <!-- Logo da Messer simplificado -->
+                <path d="M50 40 L40 55 L60 55 L50 40 Z" fill="white"/>
+                <!-- Sombra -->
+                <path d="M65 90 C65 95 60 100 50 100 C40 100 35 95 35 90 L35 85 C40 90 60 90 65 85 L65 90 Z" fill="#D1D5DB" opacity="0.7"/>
+            </svg>
+            <h1 class="text-6xl font-extrabold mb-2 slide-up" style="color: #004B8D;">GaScan</h1>
+            <p class="text-xl text-gray-600 mb-8 slide-up">Contador de Cilindros Messer</p>
+            <button id="start-app-btn" class="btn text-white">Iniciar</button>
+        </section>
+
+        <!-- Seção do aplicativo principal -->
+        <section id="main-app" class="hidden flex flex-col items-center">
+            <header class="mb-8 w-full">
+                <div class="flex justify-center items-center mb-4">
+                    <svg class="w-12 h-12 mr-2" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="35" y="10" width="30" height="80" rx="15" fill="#004B8D"/>
+                        <circle cx="50" cy="18" r="14" fill="#E3302B"/>
+                        <path d="M50 40 L40 55 L60 55 L50 40 Z" fill="white"/>
+                    </svg>
+                    <h1 class="text-4xl font-extrabold" style="color: #004B8D;">GaScan</h1>
+                </div>
+            </header>
+            
+            <section id="camera-section" class="relative w-full">
+                <video id="video-feed" autoplay playsinline class="rounded-2xl"></video>
+                <canvas id="overlay-canvas" class="absolute top-0 left-0"></canvas>
+            </section>
+    
+            <section id="results-section" class="mt-8 w-full">
+                <h2 class="text-2xl font-bold mb-4" style="color: #004B8D;">Contagem em Tempo Real</h2>
+                <div id="results-list" class="flex flex-col sm:flex-row flex-wrap justify-center items-center gap-4"></div>
+            </section>
+        </section>
+
+        <div id="message-box" class="fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center p-4 z-50 hidden">
+            <div class="bg-white p-8 rounded-xl shadow-2xl max-w-sm text-center">
+                <p id="message-text" class="text-lg font-medium text-gray-800 mb-6"></p>
+                <button id="message-close-btn" class="btn w-full" style="background-color: #004B8D; color: white;">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const startAppBtn = document.getElementById('start-app-btn');
+            const welcomeScreen = document.getElementById('welcome-screen');
+            const mainApp = document.getElementById('main-app');
+            const video = document.getElementById('video-feed');
+            const overlayCanvas = document.getElementById('overlay-canvas');
+            const resultsSection = document.getElementById('results-section');
+            const resultsList = document.getElementById('results-list');
+            const messageBox = document.getElementById('message-box');
+            const messageText = document.getElementById('message-text');
+            const messageCloseBtn = document.getElementById('message-close-btn');
+
+            let model = null;
+            let stream = null;
+            let animationFrameId = null;
+
+            const showMessage = (text) => {
+                messageText.textContent = text;
+                messageBox.classList.remove('hidden');
+            };
+
+            const hideMessage = () => {
+                messageBox.classList.add('hidden');
+            };
+
+            messageCloseBtn.addEventListener('click', hideMessage);
+
+            // Inicia a câmera e o modelo
+            const startCameraAndModel = async () => {
+                try {
+                    showMessage("Carregando o modelo de detecção de objetos. Por favor, aguarde...");
+                    model = await cocoSsd.load();
+                    hideMessage();
+                    
+                    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                    video.srcObject = stream;
+                    video.onloadedmetadata = () => {
+                        video.play();
+                        overlayCanvas.width = video.videoWidth;
+                        overlayCanvas.height = video.videoHeight;
+                        animate();
+                        resultsSection.classList.remove('hidden');
+                    };
+                } catch (err) {
+                    console.error("Erro ao acessar a câmera ou carregar o modelo: ", err);
+                    showMessage("Não foi possível acessar a câmera ou carregar o modelo. Verifique as permissões e sua conexão.");
+                }
+            };
+            
+            // Loop de animação para análise de vídeo e detecção de objetos
+            const animate = async () => {
+                if (video.readyState === 4 && model) {
+                    const predictions = await model.detect(video);
+                    drawPredictions(predictions);
+                }
+                animationFrameId = requestAnimationFrame(animate);
+            };
+
+            const drawPredictions = (predictions) => {
+                const ctx = overlayCanvas.getContext('2d');
+                ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+                const counts = {};
+
+                predictions.forEach(prediction => {
+                    const [x, y, width, height] = prediction.bbox;
+                    const className = prediction.class;
+                    
+                    if (className === 'bottle' || className === 'cup' || className === 'vase') {
+                        const cylinderType = classifyCylinder(x, y, width, height);
+                        if (cylinderType) {
+                            ctx.strokeStyle = cylinderType.hex;
+                            ctx.lineWidth = 4;
+                            ctx.strokeRect(x, y, width, height);
+
+                            ctx.fillStyle = cylinderType.hex;
+                            ctx.font = '20px Montserrat';
+                            ctx.textAlign = 'left';
+                            ctx.fillText(cylinderType.name, x, y > 10 ? y - 5 : 10);
+                            
+                            counts[cylinderType.name] = (counts[cylinderType.name] || 0) + 1;
+                        }
+                    }
+                });
+                updateResults(counts);
+            };
+
+            const classifyCylinder = (x, y, width, height) => {
+                const ctx = overlayCanvas.getContext('2d');
+                // Pega uma amostra de cor da área do ombro (parte superior) do cilindro
+                const sampleSize = 10;
+                const sampleX = x + width / 2;
+                const sampleY = y + (height * 0.1); // 10% do topo da caixa
+                const pixelData = ctx.getImageData(sampleX, sampleY, sampleSize, sampleSize).data;
+                
+                let sumR = 0, sumG = 0, sumB = 0;
+                for (let i = 0; i < pixelData.length; i += 4) {
+                    sumR += pixelData[i];
+                    sumG += pixelData[i + 1];
+                    sumB += pixelData[i + 2];
+                }
+                const [r, g, b] = [sumR / (sampleSize * sampleSize), sumG / (sampleSize * sampleSize), sumB / (sampleSize * sampleSize)];
+                
+                // Mapeamento de cores dos gases (normas da indústria)
+                const gasColors = {
+                    'Oxigênio (Medicinal)': { color: [0, 144, 72], tolerance: 50, hex: '#009048' }, // Verde
+                    'Oxigênio (Industrial)': { color: [0, 0, 0], tolerance: 50, hex: '#000000' }, // Preto
+                    'Nitrogênio': { color: [197, 196, 191], tolerance: 50, hex: '#C5C4BF' }, // Cinza
+                    'Argônio': { color: [59, 39, 36], tolerance: 50, hex: '#3B2724' }, // Marrom
+                    'Ar Comprimido': { color: [0, 107, 178], tolerance: 50, hex: '#006BB2' }, // Azul
+                    'Hélio': { color: [247, 137, 24], tolerance: 50, hex: '#F78918' }, // Laranja
+                    'Dióxido de Carbono': { color: [88, 88, 88], tolerance: 50, hex: '#585858' }, // Cinza Escuro
+                    'Óxido Nitroso': { color: [64, 76, 92], tolerance: 50, hex: '#404C5C' }, // Azul Marinho
+                    'Acetileno': { color: [100, 48, 48], tolerance: 50, hex: '#643030' }, // Marrom Avermelhado
+                };
+
+                for (const gasName in gasColors) {
+                    const gas = gasColors[gasName];
+                    if (Math.abs(r - gas.color[0]) <= gas.tolerance &&
+                        Math.abs(g - gas.color[1]) <= gas.tolerance &&
+                        Math.abs(b - gas.color[2]) <= gas.tolerance) {
+                        return { name: gasName, hex: gas.hex };
+                    }
+                }
+                return null;
+            };
+
+            const updateResults = (counts) => {
+                resultsList.innerHTML = '';
+                for (const gas in counts) {
+                    if (counts[gas] > 0) {
+                         const resultItem = document.createElement('div');
+                         resultItem.className = 'flex items-center space-x-2 p-3 rounded-lg shadow-sm w-full sm:w-auto transition-all duration-300';
+                         
+                         // Usa um fallback se a cor do gás não estiver definida
+                         const gasColor = gasColors[gas] ? gasColors[gas].hex : '#4B5563';
+                         const textColor = gasColor === '#C5C4BF' ? '#1f2937' : '#ffffff';
+                         
+                         resultItem.style.backgroundColor = gasColor;
+                         resultItem.style.color = textColor;
+
+                         const countElement = document.createElement('span');
+                         countElement.className = 'text-2xl font-bold';
+                         countElement.textContent = counts[gas];
+
+                         const nameElement = document.createElement('span');
+                         nameElement.className = 'text-xl font-medium';
+                         nameElement.textContent = gas;
+
+                         resultItem.appendChild(countElement);
+                         resultItem.appendChild(nameElement);
+                         resultsList.appendChild(resultItem);
+                    }
+                }
+            };
+            
+            // Eventos de clique
+            startAppBtn.addEventListener('click', () => {
+                welcomeScreen.classList.add('hidden');
+                mainApp.classList.remove('hidden');
+                startCameraAndModel();
+            });
+
+        });
+    </script>
+</body>
+</html>
