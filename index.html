@@ -179,14 +179,11 @@
             const messageText = document.getElementById('message-text');
             const messageCloseBtn = document.getElementById('message-close-btn');
             const confirmButtons = document.getElementById('confirm-buttons');
-            const confirmYesBtn = document.getElementById('confirm-yes-btn');
+            const confirmYesBtn = document = document.getElementById('confirm-yes-btn');
             const confirmNoBtn = document.getElementById('confirm-no-btn');
             const totalCountSpan = document.getElementById('total-count');
 
-            //
             // VOCÊ DEVE INSERIR SUA CHAVE DE API AQUI PARA QUE O APP FUNCIONE.
-            // VOCÊ PODE OBTER UMA CHAVE GRATUITA EM: https://aistudio.google.com/app/apikey
-            //
             const apiKey = "AIzaSyCwadVjCBih0WnbPeFagecSghPnn400yjw";
             const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`;
 
@@ -334,6 +331,31 @@
                 
                 const base64ImageData = overlayCanvas.toDataURL('image/jpeg').split(',')[1];
                 
+                const detailedPrompt = `Com base na norma brasileira (ABNT NBR 12791), a calota do cilindro de gás possui cores padronizadas. Analise a imagem e identifique o tipo de gás com base na cor da calota. Seja absolutamente rigoroso na sua identificação, prestando atenção aos detalhes da cor.
+
+- **Oxigênio (Industrial):** Calota **preta**, uniforme, escura e fosca.
+- **Oxigênio (Medicinal):** Calota **branca-neve** ou branco puríssimo. É uma cor limpa e, em geral, brilhante.
+- **Argônio:** Calota **marrom-escura**, quase preta. É uma cor terrosa e profunda.
+- **Nitrogênio:** Calota **cinza-clara** ou cinza-pérola. É uma cor neutra e sem brilho.
+- **Ar Comprimido:** Calota **azul-escura** ou azul-royal.
+- **Dióxido de Carbono:** Calota **cinza-escura**, mais escura que o nitrogênio e com um tom mais fechado.
+- **Óxido Nitroso:** Calota **azul-marinho** ou azul-chumbo. Um azul muito escuro.
+- **Hélio:** Calota **laranja-viva** ou amarela-clara.
+- **Acetileno:** Calota **vermelho-escuro** ou vinho.
+- **Ar Sintético:** Calota **verde-claro** ou verde-bandeira. É uma cor viva, distintiva e jamais deve ser confundida com o branco-neve do oxigênio medicinal.
+- **Misturas Carbogênicas:** Calota **verde-claro**, idêntica ao Ar Sintético.
+- **Mistura Co2 em Argônio:** Calota **marrom-escura**, idêntica ao Argônio.
+- **Nitrogênio em Argônio:** Calota **marrom-escura**, idêntica ao Argônio.
+- **Oxigênio em Argônio:** Calota **marrom-escura**, idêntica ao Argônio.
+- **Oxigênio em Hélio:** Calota **laranja-viva** ou amarela-clara, idêntica ao Hélio.
+- **Hidrogênio:** Calota **cinza-escura** ou preta, podendo ter uma faixa branca no topo.
+- **Propano:** Calota **cinza-clara** ou cinza-escura, mas pode ter uma faixa laranja.
+- **Etileno:** Calota **cinza-clara** ou cinza-escura.
+
+**Instrução de precisão:** Considere a iluminação da foto, mas se concentre no tom puro da cor da calota. Evite misturar tons, por exemplo, não confunda verde com cinza, mesmo em fotos de baixa qualidade. Se a cor for verde-claro, o gás é Ar Sintético. Se for branco, o gás é Oxigênio Medicinal. Não há cinza esverdeado ou branco esverdeado.
+
+Qual o gás mais provável na imagem? Responda **apenas com um objeto JSON** com duas chaves: "gas_type" (o tipo de gás) e "confidence" (o nível de confiança em uma escala de 0 a 1). O valor de "gas_type" deve ser um dos seguintes: ${Object.keys(gasColors).join(', ')}. Exemplo: {"gas_type": "Argônio", "confidence": 0.95}.`;
+                
                 try {
                     const response = await fetch(API_URL, {
                         method: 'POST',
@@ -341,7 +363,7 @@
                         body: JSON.stringify({
                             contents: [{
                                 parts: [
-                                    { text: `A imagem mostra a parte superior de um cilindro de gás da Messer. A calota é a parte de cima, colorida. Com base nas cores da calota e da tabela de cores da Messer, qual o tipo de gás mais provável? A calota de cor branca-neve ou muito clara é para **Oxigênio Medicinal**. A calota verde clara ou verde escura é para **Ar Sintético**. A calota preta é para **Oxigênio Industrial**. A calota marrom-escura é para **Argônio**. Qual o gás mais provável na imagem? Responda **apenas com um objeto JSON** com duas chaves: "gas_type" (o tipo de gás) e "confidence" (o nível de confiança em uma escala de 0 a 1). O valor de "gas_type" deve ser um dos seguintes: ${Object.keys(gasColors).join(', ')}. Exemplo: {"gas_type": "Argônio", "confidence": 0.95}.` },
+                                    { text: detailedPrompt },
                                     { inlineData: { mimeType: "image/jpeg", data: base64ImageData } }
                                 ]
                             }]
