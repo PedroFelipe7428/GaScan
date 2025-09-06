@@ -183,6 +183,7 @@
             // As cores foram ajustadas para serem mais precisas com base nas imagens
             const gasColors = {
                 'Oxigênio (Industrial)': { hex: '#000000', parts: [{ y: 0.1, color: [0, 0, 0], tolerance: 30 }] },
+                'Oxigênio (Medicinal)': { hex: '#FFFFFF', parts: [{ y: 0.1, color: [255, 255, 255], tolerance: 30 }] },
                 'Argônio': { hex: '#3B2724', parts: [{ y: 0.1, color: [59, 39, 36], tolerance: 30 }] },
                 'Nitrogênio': { hex: '#C5C4BF', parts: [{ y: 0.1, color: [197, 196, 191], tolerance: 30 }] },
                 'Ar Comprimido': { hex: '#006BB2', parts: [{ y: 0.1, color: [0, 107, 178], tolerance: 30 }] },
@@ -197,6 +198,10 @@
                 'Nitrogênio em Argônio': { hex: '#3B2724', parts: [{ y: 0.1, color: [59, 39, 36], tolerance: 50 }, { y: 0.5, color: [197, 196, 191], tolerance: 50 }] },
                 'Oxigênio em Argônio': { hex: '#3B2724', parts: [{ y: 0.1, color: [59, 39, 36], tolerance: 50 }, { y: 0.5, color: [0, 0, 0], tolerance: 50 }] },
                 'Oxigênio em Hélio': { hex: '#F78918', parts: [{ y: 0.1, color: [247, 137, 24], tolerance: 50 }, { y: 0.5, color: [0, 0, 0], tolerance: 50 }] },
+                // Adicionando gases extras para maior precisão
+                'Hidrogênio': { hex: '#9CA3AF', parts: [{ y: 0.1, color: [156, 163, 175], tolerance: 30 }, { y: 0.5, color: [156, 163, 175], tolerance: 30 }] },
+                'Propano': { hex: '#6B7280', parts: [{ y: 0.1, color: [107, 114, 128], tolerance: 30 }, { y: 0.5, color: [107, 114, 128], tolerance: 30 }] },
+                'Etileno': { hex: '#525252', parts: [{ y: 0.1, color: [82, 82, 82], tolerance: 30 }, { y: 0.5, color: [82, 82, 82], tolerance: 30 }] },
             };
 
             // Função para exibir mensagens na caixa de diálogo
@@ -228,7 +233,7 @@
                         resultItem.className = 'result-card flex flex-col items-center justify-center min-w-[150px]';
                         
                         const gasColor = gasColors[gas] ? gasColors[gas].hex : '#4B5563';
-                        const textColor = gasColor === '#C5C4BF' ? '#1f2937' : '#ffffff';
+                        const textColor = gasColor === '#C5C4BF' || gasColor === '#FFFFFF' ? '#1f2937' : '#ffffff';
                         
                         resultItem.style.backgroundColor = gasColor;
                         resultItem.style.color = textColor;
@@ -362,7 +367,6 @@
                 const innerHeight = height * 0.9;
 
                 // Lê as cores de todas as partes de cor do cilindro
-                const cylinderColors = {};
                 for (const gasName in gasColors) {
                     const gas = gasColors[gasName];
                     let allPartsMatch = true;
