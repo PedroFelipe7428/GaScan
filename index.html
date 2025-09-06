@@ -193,6 +193,27 @@
 
             let detectionHistory = JSON.parse(localStorage.getItem('gascan_detections')) || [];
 
+            const gasColors = {
+                'Oxigênio (Industrial)': '#000000',
+                'Oxigênio (Medicinal)': '#FFFFFF',
+                'Argônio': '#3B2724',
+                'Nitrogênio': '#C5C4BF',
+                'Ar Comprimido': '#006BB2',
+                'Dióxido de Carbono': '#585858',
+                'Óxido Nitroso': '#404C5C',
+                'Hélio': '#F78918',
+                'Acetileno': '#643030',
+                'Ar Sintético': '#009048',
+                'Misturas Carbogênicas': '#009048',
+                'Mistura Co2 em Argônio': '#3B2724',
+                'Nitrogênio em Argônio': '#3B2724',
+                'Oxigênio em Argônio': '#3B2724',
+                'Oxigênio em Hélio': '#F78918',
+                'Hidrogênio': '#9CA3AF',
+                'Propano': '#6B7280',
+                'Etileno': '#525252'
+            };
+
             const showMessage = (text, showConfirm = false, showSpinner = false) => {
                 messageText.innerHTML = '';
                 if (showSpinner) {
@@ -223,27 +244,6 @@
                 }, {});
 
                 totalCountSpan.textContent = detectionHistory.length;
-
-                const gasColors = {
-                    'Oxigênio (Industrial)': '#000000',
-                    'Oxigênio (Medicinal)': '#FFFFFF',
-                    'Argônio': '#3B2724',
-                    'Nitrogênio': '#C5C4BF',
-                    'Ar Comprimido': '#006BB2',
-                    'Dióxido de Carbono': '#585858',
-                    'Óxido Nitroso': '#404C5C',
-                    'Hélio': '#F78918',
-                    'Acetileno': '#643030',
-                    'Ar Sintético': '#009048',
-                    'Misturas Carbogênicas': '#009048',
-                    'Mistura Co2 em Argônio': '#3B2724',
-                    'Nitrogênio em Argônio': '#3B2724',
-                    'Oxigênio em Argônio': '#3B2724',
-                    'Oxigênio em Hélio': '#F78918',
-                    'Hidrogênio': '#9CA3AF',
-                    'Propano': '#6B7280',
-                    'Etileno': '#525252'
-                };
 
                 for (const gas in counts) {
                     if (counts[gas] > 0) {
@@ -337,7 +337,7 @@
                         body: JSON.stringify({
                             contents: [{
                                 parts: [
-                                    { text: `Análise de cilindro de gás. Baseado nas cores, qual o tipo de gás deste cilindro? Não considere o corpo do cilindro, apenas a calota e o ombro. Responda apenas com o nome do gás em português, por exemplo: 'Oxigênio (Industrial)', 'Argônio', 'Nitrogênio', 'Dióxido de Carbono', 'Óxido Nitroso', 'Hélio', 'Acetileno', 'Ar Sintético', 'Misturas Carbogênicas', 'Mistura Co2 em Argônio', 'Nitrogênio em Argônio', 'Oxigênio em Argônio', 'Oxigênio em Hélio', 'Hidrogênio', 'Propano', 'Etileno', 'Ar Comprimido' ou 'Oxigênio (Medicinal)'. Não adicione mais nada na resposta.` },
+                                    { text: `Qual o tipo de gás deste cilindro, baseado na cor da calota? A imagem mostra um cilindro de gás da Messer. Responda com o nome do gás mais provável.` },
                                     { inlineData: { mimeType: "image/jpeg", data: base64ImageData } }
                                 ]
                             }]
@@ -352,9 +352,15 @@
                     const result = await response.json();
                     const detectedGas = result?.candidates?.[0]?.content?.parts?.[0]?.text;
                     
-                    if (detectedGas && detectedGas.length > 2) {
-                        confirmedGas = detectedGas.trim();
-                        showMessage(`Cilindro detectado: **${confirmedGas}**. Deseja adicionar à contagem?`, true);
+                    if (detectedGas) {
+                        const gasFound = Object.keys(gasColors).find(gasName => detectedGas.toLowerCase().includes(gasName.toLowerCase()));
+                        
+                        if (gasFound) {
+                            confirmedGas = gasFound;
+                            showMessage(`Cilindro detectado: **${confirmedGas}**. Deseja adicionar à contagem?`, true);
+                        } else {
+                            showMessage("Nenhum cilindro detectado. O resultado da análise não corresponde a um gás conhecido.");
+                        }
                     } else {
                         showMessage("Nenhum cilindro detectado. Por favor, posicione melhor a câmera e tente novamente.");
                     }
