@@ -242,8 +242,9 @@
             const summaryCloseBtn = document.getElementById('summary-close-btn');
             const summaryLoading = document.getElementById('summary-loading');
 
-            const API_URL_IMAGE = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=";
-            const API_URL_TEXT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=";
+            const apiKey = "AIzaSyCwadVjCBih0WnbPeFagecSghPnn400yjw";
+            const API_URL_IMAGE = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`;
+            const API_URL_TEXT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
             let stream = null;
             let confirmedGas = null;
