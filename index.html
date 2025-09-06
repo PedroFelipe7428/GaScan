@@ -5,12 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GaScan - Contador de Cilindros</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap');
         body {
             font-family: 'Poppins', sans-serif;
             background-color: #0d1117;
@@ -34,6 +31,11 @@
             background: linear-gradient(145deg, #B82522, #8E1C1A);
             @apply px-6 py-3 rounded-full font-bold text-white transition-all duration-300 transform hover:scale-105 shadow-md;
             border: 2px solid #E3302B;
+        }
+        .btn-summary {
+            background: linear-gradient(145deg, #00C2FF, #008DFF);
+            @apply px-6 py-3 rounded-full font-bold text-white transition-all duration-300 transform hover:scale-105 shadow-md;
+            border: 2px solid #00E5FF;
         }
         .logo-svg {
             animation: pulse-logo 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
@@ -178,6 +180,12 @@
                 <h2 class="text-xl font-bold text-gray-300 mb-4">Resultados da Contagem</h2>
                 <div id="results-list" class="flex flex-col sm:flex-row flex-wrap justify-center items-stretch gap-4"></div>
             </section>
+
+            <section class="mt-8 w-full">
+                <button id="summary-btn" class="btn-summary w-full">
+                    ✨ Gerar Resumo de Estoque ✨
+                </button>
+            </section>
         </section>
 
         <!-- Modal de Confirmação e Mensagens -->
@@ -191,6 +199,22 @@
                 <button id="message-close-btn" class="btn-scan w-full">OK</button>
             </div>
         </div>
+
+        <!-- Modal de Resumo -->
+        <div id="summary-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50 hidden">
+            <div class="bg-gray-800 p-8 rounded-xl shadow-2xl max-w-lg w-full border border-gray-700">
+                <h3 class="text-2xl font-bold mb-4 text-center">Resumo do Inventário</h3>
+                <p id="summary-text" class="text-gray-300 text-lg text-left leading-relaxed mb-6"></p>
+                <div class="text-center">
+                    <div id="summary-loading" class="flex justify-center items-center flex-col hidden">
+                        <div class="spinner mb-2"></div>
+                        <p class="text-gray-400">Gerando resumo...</p>
+                    </div>
+                </div>
+                <button id="summary-close-btn" class="btn-scan w-full">Fechar</button>
+            </div>
+        </div>
+
     </div>
 
     <script>
@@ -212,13 +236,16 @@
             const confirmNoBtn = document.getElementById('confirm-no-btn');
             const totalCountSpan = document.getElementById('total-count');
             const scanLoading = document.getElementById('scan-loading');
+            const summaryBtn = document.getElementById('summary-btn');
+            const summaryModal = document.getElementById('summary-modal');
+            const summaryText = document.getElementById('summary-text');
+            const summaryCloseBtn = document.getElementById('summary-close-btn');
+            const summaryLoading = document.getElementById('summary-loading');
 
-            const apiKey = "AIzaSyCwadVjCBih0WnbPeFagecSghPnn400yjw";
-            const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`;
+            const API_URL_IMAGE = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=";
+            const API_URL_TEXT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=";
 
-            let model = null;
             let stream = null;
-            let modelLoaded = false;
             let confirmedGas = null;
 
             let detectionHistory = JSON.parse(localStorage.getItem('gascan_detections')) || [];
@@ -277,6 +304,17 @@
 
             messageCloseBtn.addEventListener('click', hideMessage);
 
+            const showSummary = (text, showSpinner = false) => {
+                summaryModal.classList.remove('hidden');
+                summaryLoading.classList.toggle('hidden', !showSpinner);
+                summaryText.innerHTML = text;
+            };
+
+            summaryCloseBtn.addEventListener('click', () => {
+                summaryModal.classList.add('hidden');
+                summaryText.innerHTML = '';
+            });
+
             const updateResults = () => {
                 resultsList.innerHTML = '';
                 const counts = detectionHistory.reduce((acc, current) => {
@@ -285,6 +323,7 @@
                 }, {});
 
                 totalCountSpan.textContent = detectionHistory.length;
+                summaryBtn.disabled = detectionHistory.length === 0;
 
                 for (const gas in counts) {
                     if (counts[gas] > 0) {
@@ -337,25 +376,12 @@
             };
 
             const startApp = async () => {
-                if (!modelLoaded) {
-                    showMessage("Carregando modelo de IA. Por favor, aguarde...", false, true);
-                    try {
-                        model = await cocoSsd.load(); // Mantido para possível uso futuro de detecção de objetos
-                        modelLoaded = true;
-                        hideMessage();
-                        startCamera();
-                        resultsSection.classList.remove('hidden');
-                    } catch (err) {
-                        console.error("Erro ao carregar o modelo: ", err);
-                        showMessage("Não foi possível carregar o modelo. Verifique sua conexão com a internet.");
-                    }
-                } else {
-                    startCamera();
-                }
+                startCamera();
+                resultsSection.classList.remove('hidden');
             };
 
             const captureAndProcess = async () => {
-                if (!modelLoaded || isScanning) {
+                if (isScanning) {
                     return;
                 }
                 if (video.readyState !== 4) {
@@ -407,7 +433,7 @@
                 Responda **apenas com um objeto JSON** com duas chaves: "gas_type" (o tipo de gás) e "confidence" (o nível de confiança em uma escala de 0 a 1). O valor de "gas_type" deve ser um dos seguintes: ${Object.keys(gasColors).join(', ')}. Exemplo: {"gas_type": "GOURMET®", "confidence": 0.98}.`;
                 
                 try {
-                    const response = await fetch(API_URL, {
+                    const response = await fetch(API_URL_IMAGE, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -449,6 +475,43 @@
                 }
             };
             
+            const generateSummary = async () => {
+                if (detectionHistory.length === 0) {
+                    showMessage("Escaneie alguns cilindros primeiro para gerar um resumo.");
+                    return;
+                }
+
+                showSummary(" ", true); // Exibe o modal e o spinner
+                
+                const historyString = detectionHistory.join(', ');
+                const prompt = `Com base na lista de gases de cilindros escaneados a seguir: "${historyString}", forneça um resumo de inventário de uma maneira profissional e concisa. Inclua o total de cilindros escaneados e a quantidade de cada tipo de gás. O resumo deve ser uma única frase ou parágrafo curto.`;
+                
+                try {
+                    const response = await fetch(API_URL_TEXT, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{
+                                parts: [{ text: prompt }]
+                            }]
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(`Erro na API de texto: ${JSON.stringify(errorData)}`);
+                    }
+
+                    const result = await response.json();
+                    const summary = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+                    showSummary(summary, false);
+
+                } catch (err) {
+                    console.error("Erro ao gerar o resumo: ", err);
+                    showSummary("Não foi possível gerar o resumo. Tente novamente mais tarde.", false);
+                }
+            };
+
             startAppBtn.addEventListener('click', () => {
                 welcomeScreen.classList.add('hidden');
                 mainApp.classList.remove('hidden');
@@ -456,6 +519,7 @@
             });
 
             scanBtn.addEventListener('click', captureAndProcess);
+            summaryBtn.addEventListener('click', generateSummary);
 
             resetCounterBtn.addEventListener('click', () => {
                 detectionHistory = [];
