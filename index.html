@@ -22,6 +22,14 @@
             background: linear-gradient(145deg, #E3302B, #B82522);
             @apply px-10 py-5 rounded-full font-bold transition-all duration-300 transform hover:scale-105 shadow-xl;
         }
+        .btn-green {
+            background: linear-gradient(145deg, #009048, #00703B);
+            @apply px-6 py-3 rounded-full font-bold transition-all duration-300 transform hover:scale-105 shadow-md;
+        }
+        .btn-red {
+            background: linear-gradient(145deg, #B82522, #8E1C1A);
+            @apply px-6 py-3 rounded-full font-bold transition-all duration-300 transform hover:scale-105 shadow-md;
+        }
         .btn:hover {
             box-shadow: 0 8px 15px rgba(227, 48, 43, 0.4);
         }
@@ -116,11 +124,23 @@
                 <video id="video-feed" autoplay playsinline></video>
                 <canvas id="overlay-canvas"></canvas>
             </section>
+            
+            <div class="flex flex-col sm:flex-row gap-4 mt-4 w-full justify-center">
+                <button id="toggle-camera-btn" class="btn-green text-white">Ligar Câmera</button>
+                <button id="reset-counter-btn" class="btn-red text-white">Reiniciar Contagem</button>
+            </div>
     
             <section id="results-section" class="mt-8 w-full">
-                <h2 class="text-2xl font-bold mb-4" style="color: #004B8D;">Contagem em Tempo Real</h2>
-                <div id="results-list" class="flex flex-col sm:flex-row flex-wrap justify-center items-center gap-4"></div>
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-2xl font-bold" style="color: #004B8D;">Contagem em Tempo Real</h2>
+                    <h2 class="text-2xl font-bold" style="color: #004B8D;">Total: <span id="total-count">0</span></h2>
+                </div>
+                <div id="results-list" class="flex flex-col sm:flex-row flex-wrap justify-center items-stretch gap-4"></div>
             </section>
+
+            <div class="flex mt-4">
+                <button id="delete-last-btn" class="btn-red text-white">Excluir Último</button>
+            </div>
         </section>
 
         <div id="message-box" class="fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center p-4 z-50 hidden">
@@ -134,6 +154,9 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const startAppBtn = document.getElementById('start-app-btn');
+            const toggleCameraBtn = document.getElementById('toggle-camera-btn');
+            const resetCounterBtn = document.getElementById('reset-counter-btn');
+            const deleteLastBtn = document.getElementById('delete-last-btn');
             const welcomeScreen = document.getElementById('welcome-screen');
             const mainApp = document.getElementById('main-app');
             const video = document.getElementById('video-feed');
@@ -143,6 +166,7 @@
             const messageBox = document.getElementById('message-box');
             const messageText = document.getElementById('message-text');
             const messageCloseBtn = document.getElementById('message-close-btn');
+            const totalCountSpan = document.getElementById('total-count');
 
             let model = null;
             let stream = null;
@@ -150,21 +174,31 @@
             
             // Variável para armazenar o estado de carregamento do modelo
             let modelLoaded = false;
-            let totalCylinders = 0;
+            let isCameraOn = false;
+
+            // Histórico de detecções para o contador
+            let detectionHistory = JSON.parse(localStorage.getItem('gascan_detections')) || [];
 
             // Mapeamento de cores dos gases (normas da indústria)
+            // As cores foram ajustadas para serem mais precisas com base nas imagens
             const gasColors = {
-                'Oxigênio (Medicinal)': { color: [0, 144, 72], tolerance: 50, hex: '#009048' }, // Verde
-                'Oxigênio (Industrial)': { color: [0, 0, 0], tolerance: 50, hex: '#000000' }, // Preto
-                'Nitrogênio': { color: [197, 196, 191], tolerance: 50, hex: '#C5C4BF' }, // Cinza
-                'Argônio': { color: [59, 39, 36], tolerance: 50, hex: '#3B2724' }, // Marrom
-                'Ar Comprimido': { color: [0, 107, 178], tolerance: 50, hex: '#006BB2' }, // Azul
-                'Hélio': { color: [247, 137, 24], tolerance: 50, hex: '#F78918' }, // Laranja
-                'Dióxido de Carbono': { color: [88, 88, 88], tolerance: 50, hex: '#585858' }, // Cinza Escuro
-                'Óxido Nitroso': { color: [64, 76, 92], tolerance: 50, hex: '#404C5C' }, // Azul Marinho
-                'Acetileno': { color: [100, 48, 48], tolerance: 50, hex: '#643030' }, // Marrom Avermelhado
+                'Oxigênio (Industrial)': { color: [0, 0, 0], tolerance: 30, hex: '#000000', secondary: null }, // Preto
+                'Argônio': { color: [59, 39, 36], tolerance: 30, hex: '#3B2724', secondary: null }, // Marrom
+                'Nitrogênio': { color: [197, 196, 191], tolerance: 30, hex: '#C5C4BF', secondary: null }, // Cinza
+                'Ar Comprimido': { color: [0, 107, 178], tolerance: 30, hex: '#006BB2', secondary: null }, // Azul
+                'Dióxido de Carbono': { color: [88, 88, 88], tolerance: 30, hex: '#585858', secondary: null }, // Cinza Escuro
+                'Óxido Nitroso': { color: [64, 76, 92], tolerance: 30, hex: '#404C5C', secondary: null }, // Azul Marinho
+                'Hélio': { color: [247, 137, 24], tolerance: 30, hex: '#F78918', secondary: null }, // Laranja
+                'Acetileno': { color: [100, 48, 48], tolerance: 30, hex: '#643030', secondary: null }, // Marrom Avermelhado
+                // Misturas Gasosas (Detecção mais complexa)
+                'Ar Sintético': { color: [0, 144, 72], tolerance: 50, hex: '#009048', secondary: [197, 196, 191] }, // Verde e Cinza
+                'Misturas Carbogênicas': { color: [0, 144, 72], tolerance: 50, hex: '#009048', secondary: [88, 88, 88] }, // Verde e Cinza Escuro
+                'Mistura Co2 em Argônio': { color: [59, 39, 36], tolerance: 50, hex: '#3B2724', secondary: [88, 88, 88] }, // Marrom e Cinza Escuro
+                'Nitrogênio em Argônio': { color: [59, 39, 36], tolerance: 50, hex: '#3B2724', secondary: [197, 196, 191] }, // Marrom e Cinza
+                'Oxigênio em Argônio': { color: [59, 39, 36], tolerance: 50, hex: '#3B2724', secondary: [0, 0, 0] }, // Marrom e Preto
+                'Oxigênio em Hélio': { color: [247, 137, 24], tolerance: 50, hex: '#F78918', secondary: [0, 0, 0] }, // Laranja e Preto
             };
-            
+
             // Função para exibir mensagens na caixa de diálogo
             const showMessage = (text, showBtn = true) => {
                 messageText.textContent = text;
@@ -178,112 +212,20 @@
 
             messageCloseBtn.addEventListener('click', hideMessage);
 
-            // Inicia a câmera e o modelo
-            const startCameraAndModel = async () => {
-                showMessage("Carregando o modelo de detecção de objetos. Por favor, aguarde...", false);
-                try {
-                    model = await cocoSsd.load();
-                    modelLoaded = true;
-                    hideMessage();
-                    
-                    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-                    video.srcObject = stream;
-                    video.onloadedmetadata = () => {
-                        video.play();
-                        overlayCanvas.width = video.videoWidth;
-                        overlayCanvas.height = video.videoHeight;
-                        animate();
-                        resultsSection.classList.remove('hidden');
-                    };
-                } catch (err) {
-                    console.error("Erro ao acessar a câmera ou carregar o modelo: ", err);
-                    
-                    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-                        showMessage("Acesso à câmera negado. Por favor, permita o acesso nas configurações do seu navegador e recarregue a página.");
-                    } else {
-                        showMessage("Não foi possível acessar a câmera ou carregar o modelo. Verifique as permissões e sua conexão.");
-                    }
-                }
-            };
-            
-            // Loop de animação para análise de vídeo e detecção de objetos
-            const animate = async () => {
-                if (video.readyState === 4 && modelLoaded) {
-                    const predictions = await model.detect(video);
-                    drawPredictions(predictions);
-                }
-                animationFrameId = requestAnimationFrame(animate);
-            };
-
-            const drawPredictions = (predictions) => {
-                const ctx = overlayCanvas.getContext('2d');
-                ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-                const counts = {};
-
-                predictions.forEach(prediction => {
-                    const [x, y, width, height] = prediction.bbox;
-                    const className = prediction.class;
-                    
-                    // O modelo detecta 'bottle', 'cup' ou 'vase' para objetos cilíndricos
-                    if (className === 'bottle' || className === 'cup' || className === 'vase') {
-                        const cylinderType = classifyCylinder(x, y, width, height);
-                        if (cylinderType) {
-                            // Desenha o quadrado
-                            ctx.strokeStyle = cylinderType.hex;
-                            ctx.lineWidth = 4;
-                            ctx.strokeRect(x, y, width, height);
-
-                            // Adiciona o texto
-                            ctx.fillStyle = cylinderType.hex;
-                            ctx.font = '20px Montserrat';
-                            ctx.textAlign = 'left';
-                            ctx.fillText(cylinderType.name, x, y > 10 ? y - 5 : 10);
-                            
-                            counts[cylinderType.name] = (counts[cylinderType.name] || 0) + 1;
-                        }
-                    }
-                });
-                updateResults(counts);
-            };
-
-            // Função de classificação de cilindro baseada na cor do ombro
-            const classifyCylinder = (x, y, width, height) => {
-                const ctx = overlayCanvas.getContext('2d');
-                
-                // Análise de uma área maior para mais robustez (10x10 pixels)
-                const sampleSize = 10;
-                const sampleX = x + width / 2;
-                const sampleY = y + (height * 0.1); // Pega a amostra a 10% do topo da caixa (o "ombro")
-                const pixelData = ctx.getImageData(sampleX, sampleY, sampleSize, sampleSize).data;
-                
-                let sumR = 0, sumG = 0, sumB = 0;
-                for (let i = 0; i < pixelData.length; i += 4) {
-                    sumR += pixelData[i];
-                    sumG += pixelData[i + 1];
-                    sumB += pixelData[i + 2];
-                }
-                const [r, g, b] = [sumR / (sampleSize * sampleSize), sumG / (sampleSize * sampleSize), sumB / (sampleSize * sampleSize)];
-                
-                for (const gasName in gasColors) {
-                    const gas = gasColors[gasName];
-                    // Compara a cor média da amostra com as cores de referência
-                    if (Math.abs(r - gas.color[0]) <= gas.tolerance &&
-                        Math.abs(g - gas.color[1]) <= gas.tolerance &&
-                        Math.abs(b - gas.color[2]) <= gas.tolerance) {
-                        return { name: gasName, hex: gas.hex };
-                    }
-                }
-                return null;
-            };
-
-            const updateResults = (counts) => {
+            // Atualiza a lista de resultados na tela
+            const updateResults = () => {
                 resultsList.innerHTML = '';
-                let currentTotal = 0;
+                const counts = detectionHistory.reduce((acc, current) => {
+                    acc[current] = (acc[current] || 0) + 1;
+                    return acc;
+                }, {});
+
+                totalCountSpan.textContent = detectionHistory.length;
 
                 for (const gas in counts) {
                     if (counts[gas] > 0) {
                         const resultItem = document.createElement('div');
-                        resultItem.className = 'result-card flex-1';
+                        resultItem.className = 'result-card flex flex-col items-center justify-center min-w-[150px]';
                         
                         const gasColor = gasColors[gas] ? gasColors[gas].hex : '#4B5563';
                         const textColor = gasColor === '#C5C4BF' ? '#1f2937' : '#ffffff';
@@ -292,29 +234,227 @@
                         resultItem.style.color = textColor;
 
                         const countElement = document.createElement('h3');
-                        countElement.className = 'text-2xl font-bold mb-1';
+                        countElement.className = 'text-4xl font-bold mb-1';
                         countElement.textContent = counts[gas];
 
                         const nameElement = document.createElement('p');
-                        nameElement.className = 'text-lg font-medium';
+                        nameElement.className = 'text-lg font-medium text-center';
                         nameElement.textContent = gas;
 
                         resultItem.appendChild(countElement);
                         resultItem.appendChild(nameElement);
                         resultsList.appendChild(resultItem);
-
-                        currentTotal += counts[gas];
                     }
                 }
             };
+
+            // Salva o histórico de detecções no localStorage
+            const saveDetections = () => {
+                localStorage.setItem('gascan_detections', JSON.stringify(detectionHistory));
+                updateResults();
+            };
+
+            // Liga a câmera
+            const startCamera = async () => {
+                if (isCameraOn) return;
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                    video.srcObject = stream;
+                    video.onloadedmetadata = () => {
+                        video.play();
+                        overlayCanvas.width = video.videoWidth;
+                        overlayCanvas.height = video.videoHeight;
+                        animate();
+                        isCameraOn = true;
+                        toggleCameraBtn.textContent = 'Desligar Câmera';
+                        toggleCameraBtn.classList.remove('btn-green');
+                        toggleCameraBtn.classList.add('btn-red');
+                    };
+                } catch (err) {
+                    console.error("Erro ao acessar a câmera: ", err);
+                    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                        showMessage("Acesso à câmera negado. Por favor, permita o acesso nas configurações do seu navegador.");
+                    } else {
+                        showMessage("Não foi possível acessar a câmera. Verifique as permissões e sua conexão.");
+                    }
+                }
+            };
+
+            // Desliga a câmera
+            const stopCamera = () => {
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                }
+                if (animationFrameId) {
+                    cancelAnimationFrame(animationFrameId);
+                }
+                video.srcObject = null;
+                isCameraOn = false;
+                toggleCameraBtn.textContent = 'Ligar Câmera';
+                toggleCameraBtn.classList.remove('btn-red');
+                toggleCameraBtn.classList.add('btn-green');
+            };
+
+            // Inicia o modelo e a câmera na primeira vez
+            const startApp = async () => {
+                if (!modelLoaded) {
+                    showMessage("Carregando o modelo de detecção de objetos. Por favor, aguarde...", false);
+                    try {
+                        model = await cocoSsd.load();
+                        modelLoaded = true;
+                        hideMessage();
+                        startCamera();
+                        resultsSection.classList.remove('hidden');
+                    } catch (err) {
+                        console.error("Erro ao carregar o modelo: ", err);
+                        showMessage("Não foi possível carregar o modelo. Verifique sua conexão com a internet.");
+                    }
+                } else {
+                    startCamera();
+                }
+            };
             
+            // Loop de animação para análise de vídeo e detecção de objetos
+            const animate = async () => {
+                if (!isCameraOn || video.readyState !== 4) {
+                    animationFrameId = requestAnimationFrame(animate);
+                    return;
+                }
+                
+                const predictions = await model.detect(video);
+                drawPredictions(predictions);
+                animationFrameId = requestAnimationFrame(animate);
+            };
+
+            const drawPredictions = (predictions) => {
+                const ctx = overlayCanvas.getContext('2d');
+                ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+                predictions.forEach(prediction => {
+                    const [x, y, width, height] = prediction.bbox;
+                    const className = prediction.class;
+                    
+                    if (className === 'bottle' || className === 'cup' || className === 'vase') {
+                        const cylinderType = classifyCylinder(x, y, width, height);
+                        if (cylinderType) {
+                            ctx.strokeStyle = cylinderType.hex;
+                            ctx.lineWidth = 4;
+                            ctx.strokeRect(x, y, width, height);
+                            
+                            ctx.fillStyle = cylinderType.hex;
+                            ctx.font = '20px Montserrat';
+                            ctx.textAlign = 'left';
+                            ctx.fillText(cylinderType.name, x, y > 10 ? y - 5 : 10);
+                        }
+                    }
+                });
+            };
+
+            const classifyCylinder = (x, y, width, height) => {
+                // Diminui o bbox para evitar bordas (só 5% de cada lado)
+                const innerX = x + width * 0.05;
+                const innerY = y + height * 0.05;
+                const innerWidth = width * 0.9;
+                const innerHeight = height * 0.9;
+
+                const topColor = getAverageColor(innerX, innerY, innerWidth, innerHeight * 0.2);
+                const middleColor = getAverageColor(innerX, innerY + innerHeight * 0.4, innerWidth, innerHeight * 0.2);
+                const bottomColor = getAverageColor(innerX, innerY + innerHeight * 0.8, innerWidth, innerHeight * 0.2);
+                
+                // Função para comparar cores
+                const colorMatches = (c1, c2, tolerance) => {
+                    if (!c1 || !c2) return false;
+                    return Math.abs(c1[0] - c2[0]) <= tolerance &&
+                           Math.abs(c1[1] - c2[1]) <= tolerance &&
+                           Math.abs(c1[2] - c2[2]) <= tolerance;
+                };
+
+                for (const gasName in gasColors) {
+                    const gas = gasColors[gasName];
+                    if (colorMatches(topColor, gas.color, gas.tolerance)) {
+                        // Lógica para misturas gasosas (duas cores)
+                        if (gas.secondary) {
+                            // Se a cor do meio for similar à secundária
+                            if (colorMatches(middleColor, gas.secondary, gas.tolerance) || colorMatches(bottomColor, gas.secondary, gas.tolerance)) {
+                                recordDetection(gasName);
+                                return { name: gasName, hex: gas.hex };
+                            }
+                        } else {
+                            // Detecção de cilindros de uma única cor
+                            recordDetection(gasName);
+                            return { name: gasName, hex: gas.hex };
+                        }
+                    }
+                }
+                return null;
+            };
+
+            const getAverageColor = (x, y, width, height) => {
+                const ctx = video.getContext('2d');
+                try {
+                    const imageData = ctx.getImageData(x, y, width, height).data;
+                    let sumR = 0, sumG = 0, sumB = 0;
+                    for (let i = 0; i < imageData.length; i += 4) {
+                        sumR += imageData[i];
+                        sumG += imageData[i + 1];
+                        sumB += imageData[i + 2];
+                    }
+                    const pixelCount = imageData.length / 4;
+                    return [sumR / pixelCount, sumG / pixelCount, sumB / pixelCount];
+                } catch (e) {
+                    // Ignora erros de CORS em alguns navegadores
+                    return null;
+                }
+            };
+            
+            let lastDetection = null;
+            let detectionTimeout = null;
+            const recordDetection = (gasName) => {
+                // Evita detecções duplicadas no mesmo momento
+                if (lastDetection === gasName) {
+                    return;
+                }
+                lastDetection = gasName;
+                
+                // Zera a última detecção após 3 segundos
+                clearTimeout(detectionTimeout);
+                detectionTimeout = setTimeout(() => {
+                    lastDetection = null;
+                }, 3000);
+
+                detectionHistory.push(gasName);
+                saveDetections();
+            };
+
             // Eventos de clique
             startAppBtn.addEventListener('click', () => {
                 welcomeScreen.classList.add('hidden');
                 mainApp.classList.remove('hidden');
-                startCameraAndModel();
+                startApp();
             });
 
+            toggleCameraBtn.addEventListener('click', () => {
+                if (isCameraOn) {
+                    stopCamera();
+                } else {
+                    startCamera();
+                }
+            });
+
+            resetCounterBtn.addEventListener('click', () => {
+                detectionHistory = [];
+                saveDetections();
+            });
+
+            deleteLastBtn.addEventListener('click', () => {
+                if (detectionHistory.length > 0) {
+                    detectionHistory.pop();
+                    saveDetections();
+                }
+            });
+
+            // Carrega a contagem inicial ao abrir o app
+            updateResults();
         });
     </script>
 </body>
