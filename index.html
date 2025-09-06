@@ -341,7 +341,7 @@
                         body: JSON.stringify({
                             contents: [{
                                 parts: [
-                                    { text: `A imagem mostra a parte superior de um cilindro de gás da Messer. Baseado na cor da calota, qual o tipo de gás? Responda **apenas com um objeto JSON** com duas chaves: "gas_type" (o tipo de gás) e "confidence" (o nível de confiança em uma escala de 0 a 1). O valor de "gas_type" deve ser um dos seguintes: ${Object.keys(gasColors).join(', ')}. Exemplo: {"gas_type": "Argônio", "confidence": 0.95}.` },
+                                    { text: `A imagem mostra a parte superior de um cilindro de gás da Messer. A calota é a parte de cima, colorida. Com base nas cores da calota e da tabela de cores da Messer, qual o tipo de gás mais provável? A calota de cor branca-neve ou muito clara é para **Oxigênio Medicinal**. A calota verde clara ou verde escura é para **Ar Sintético**. A calota preta é para **Oxigênio Industrial**. A calota marrom-escura é para **Argônio**. Qual o gás mais provável na imagem? Responda **apenas com um objeto JSON** com duas chaves: "gas_type" (o tipo de gás) e "confidence" (o nível de confiança em uma escala de 0 a 1). O valor de "gas_type" deve ser um dos seguintes: ${Object.keys(gasColors).join(', ')}. Exemplo: {"gas_type": "Argônio", "confidence": 0.95}.` },
                                     { inlineData: { mimeType: "image/jpeg", data: base64ImageData } }
                                 ]
                             }]
