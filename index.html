@@ -19,7 +19,7 @@
             margin: auto;
         }
         .btn {
-            background: linear-gradient(145deg, #E3302B, #B82522);
+            background: linear-gradient(145deg, #004B8D, #003666);
             @apply px-10 py-5 rounded-full font-bold transition-all duration-300 transform hover:scale-105 shadow-xl;
         }
         .btn-green {
@@ -31,12 +31,12 @@
             @apply px-6 py-3 rounded-full font-bold transition-all duration-300 transform hover:scale-105 shadow-md;
         }
         .btn:hover {
-            box-shadow: 0 8px 15px rgba(227, 48, 43, 0.4);
+            box-shadow: 0 8px 15px rgba(0, 75, 141, 0.4);
         }
         #camera-section {
             position: relative;
             width: 100%;
-            padding-top: 75%; /* Proporção 4:3 */
+            padding-top: 75%; /* 4:3 Aspect Ratio */
         }
         #video-feed, #overlay-canvas {
             position: absolute;
@@ -126,7 +126,7 @@
             </section>
             
             <div class="flex flex-col sm:flex-row gap-4 mt-4 w-full justify-center">
-                <button id="toggle-camera-btn" class="btn-green text-white">Ligar Câmera</button>
+                <button id="scan-btn" class="btn-green text-white">Escanear Cilindro</button>
                 <button id="reset-counter-btn" class="btn-red text-white">Reiniciar Contagem</button>
             </div>
     
@@ -137,15 +137,16 @@
                 </div>
                 <div id="results-list" class="flex flex-col sm:flex-row flex-wrap justify-center items-stretch gap-4"></div>
             </section>
-
-            <div class="flex mt-4">
-                <button id="delete-last-btn" class="btn-red text-white">Excluir Último</button>
-            </div>
         </section>
 
+        <!-- Modal de Confirmação e Mensagens -->
         <div id="message-box" class="fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center p-4 z-50 hidden">
             <div class="bg-white p-8 rounded-xl shadow-2xl max-w-sm text-center">
                 <p id="message-text" class="text-lg font-medium text-gray-800 mb-6"></p>
+                <div id="confirm-buttons" class="flex gap-4 justify-center hidden">
+                    <button id="confirm-yes-btn" class="btn-green w-1/2 text-white">Sim</button>
+                    <button id="confirm-no-btn" class="btn-red w-1/2 text-white">Não</button>
+                </div>
                 <button id="message-close-btn" class="btn w-full" style="background-color: #004B8D; color: white;">OK</button>
             </div>
         </div>
@@ -154,9 +155,8 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const startAppBtn = document.getElementById('start-app-btn');
-            const toggleCameraBtn = document.getElementById('toggle-camera-btn');
+            const scanBtn = document.getElementById('scan-btn');
             const resetCounterBtn = document.getElementById('reset-counter-btn');
-            const deleteLastBtn = document.getElementById('delete-last-btn');
             const welcomeScreen = document.getElementById('welcome-screen');
             const mainApp = document.getElementById('main-app');
             const video = document.getElementById('video-feed');
@@ -166,21 +166,19 @@
             const messageBox = document.getElementById('message-box');
             const messageText = document.getElementById('message-text');
             const messageCloseBtn = document.getElementById('message-close-btn');
+            const confirmButtons = document.getElementById('confirm-buttons');
+            const confirmYesBtn = document.getElementById('confirm-yes-btn');
+            const confirmNoBtn = document.getElementById('confirm-no-btn');
             const totalCountSpan = document.getElementById('total-count');
 
             let model = null;
             let stream = null;
-            let animationFrameId = null;
-            
-            // Variável para armazenar o estado de carregamento do modelo
             let modelLoaded = false;
-            let isCameraOn = false;
+            let confirmedGas = null;
 
-            // Histórico de detecções para o contador
             let detectionHistory = JSON.parse(localStorage.getItem('gascan_detections')) || [];
 
             // Mapeamento de cores dos gases (normas da indústria)
-            // As cores foram ajustadas para serem mais precisas com base nas imagens
             const gasColors = {
                 'Oxigênio (Industrial)': { hex: '#000000', parts: [{ y: 0.1, color: [0, 0, 0], tolerance: 30 }] },
                 'Oxigênio (Medicinal)': { hex: '#FFFFFF', parts: [{ y: 0.1, color: [255, 255, 255], tolerance: 30 }] },
@@ -198,26 +196,26 @@
                 'Nitrogênio em Argônio': { hex: '#3B2724', parts: [{ y: 0.1, color: [59, 39, 36], tolerance: 50 }, { y: 0.5, color: [197, 196, 191], tolerance: 50 }] },
                 'Oxigênio em Argônio': { hex: '#3B2724', parts: [{ y: 0.1, color: [59, 39, 36], tolerance: 50 }, { y: 0.5, color: [0, 0, 0], tolerance: 50 }] },
                 'Oxigênio em Hélio': { hex: '#F78918', parts: [{ y: 0.1, color: [247, 137, 24], tolerance: 50 }, { y: 0.5, color: [0, 0, 0], tolerance: 50 }] },
-                // Adicionando gases extras para maior precisão
                 'Hidrogênio': { hex: '#9CA3AF', parts: [{ y: 0.1, color: [156, 163, 175], tolerance: 30 }, { y: 0.5, color: [156, 163, 175], tolerance: 30 }] },
                 'Propano': { hex: '#6B7280', parts: [{ y: 0.1, color: [107, 114, 128], tolerance: 30 }, { y: 0.5, color: [107, 114, 128], tolerance: 30 }] },
                 'Etileno': { hex: '#525252', parts: [{ y: 0.1, color: [82, 82, 82], tolerance: 30 }, { y: 0.5, color: [82, 82, 82], tolerance: 30 }] },
             };
 
-            // Função para exibir mensagens na caixa de diálogo
-            const showMessage = (text, showBtn = true) => {
+            const showMessage = (text, showConfirm = false) => {
                 messageText.textContent = text;
                 messageBox.classList.remove('hidden');
-                messageCloseBtn.style.display = showBtn ? 'block' : 'none';
+                messageCloseBtn.classList.toggle('hidden', showConfirm);
+                confirmButtons.classList.toggle('hidden', !showConfirm);
             };
 
             const hideMessage = () => {
                 messageBox.classList.add('hidden');
+                confirmButtons.classList.add('hidden');
+                messageCloseBtn.classList.remove('hidden');
             };
 
             messageCloseBtn.addEventListener('click', hideMessage);
 
-            // Atualiza a lista de resultados na tela
             const updateResults = () => {
                 resultsList.innerHTML = '';
                 const counts = detectionHistory.reduce((acc, current) => {
@@ -253,15 +251,12 @@
                 }
             };
 
-            // Salva o histórico de detecções no localStorage
             const saveDetections = () => {
                 localStorage.setItem('gascan_detections', JSON.stringify(detectionHistory));
                 updateResults();
             };
 
-            // Liga a câmera
             const startCamera = async () => {
-                if (isCameraOn) return;
                 try {
                     stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
                     video.srcObject = stream;
@@ -269,38 +264,17 @@
                         video.play();
                         overlayCanvas.width = video.videoWidth;
                         overlayCanvas.height = video.videoHeight;
-                        animate();
-                        isCameraOn = true;
-                        toggleCameraBtn.textContent = 'Desligar Câmera';
-                        toggleCameraBtn.classList.remove('btn-green');
-                        toggleCameraBtn.classList.add('btn-red');
                     };
                 } catch (err) {
                     console.error("Erro ao acessar a câmera: ", err);
                     if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
                         showMessage("Acesso à câmera negado. Por favor, permita o acesso nas configurações do seu navegador.");
                     } else {
-                        showMessage("Não foi possível acessar a câmera. Verifique as permissões e sua conexão.");
+                        showMessage("Não foi possível acessar a câmera. Verifique as permissões.");
                     }
                 }
             };
 
-            // Desliga a câmera
-            const stopCamera = () => {
-                if (stream) {
-                    stream.getTracks().forEach(track => track.stop());
-                }
-                if (animationFrameId) {
-                    cancelAnimationFrame(animationFrameId);
-                }
-                video.srcObject = null;
-                isCameraOn = false;
-                toggleCameraBtn.textContent = 'Ligar Câmera';
-                toggleCameraBtn.classList.remove('btn-red');
-                toggleCameraBtn.classList.add('btn-green');
-            };
-
-            // Inicia o modelo e a câmera na primeira vez
             const startApp = async () => {
                 if (!modelLoaded) {
                     showMessage("Carregando o modelo de detecção de objetos. Por favor, aguarde...", false);
@@ -318,34 +292,35 @@
                     startCamera();
                 }
             };
-            
-            // Loop de animação para análise de vídeo e detecção de objetos
-            const animate = async () => {
-                if (!isCameraOn || video.readyState !== 4) {
-                    animationFrameId = requestAnimationFrame(animate);
+
+            const captureAndProcess = async () => {
+                if (!modelLoaded) {
+                    showMessage("O modelo ainda não foi carregado. Por favor, aguarde.");
+                    return;
+                }
+                if (video.readyState !== 4) {
+                    showMessage("A câmera não está pronta. Tente novamente em instantes.");
                     return;
                 }
                 
-                // Desenha o frame do vídeo no canvas para poder ler as cores
+                showMessage("Processando imagem...", false);
+
+                // Draw a single frame to the canvas
                 const ctx = overlayCanvas.getContext('2d');
                 ctx.drawImage(video, 0, 0, overlayCanvas.width, overlayCanvas.height);
 
-                const predictions = await model.detect(overlayCanvas); // Passa o canvas para o modelo
-                drawPredictions(predictions, ctx);
-                animationFrameId = requestAnimationFrame(animate);
-            };
-
-            const drawPredictions = (predictions, ctx) => {
-                ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-                ctx.drawImage(video, 0, 0, overlayCanvas.width, overlayCanvas.height); // Desenha o frame novamente para a detecção
-
+                const predictions = await model.detect(overlayCanvas);
+                
+                let foundCylinder = false;
                 predictions.forEach(prediction => {
                     const [x, y, width, height] = prediction.bbox;
                     const className = prediction.class;
-                    
+
                     if (className === 'bottle' || className === 'cup' || className === 'vase') {
                         const cylinderType = classifyCylinder(x, y, width, height, ctx);
                         if (cylinderType) {
+                            foundCylinder = true;
+                            confirmedGas = cylinderType.name;
                             ctx.strokeStyle = cylinderType.hex;
                             ctx.lineWidth = 4;
                             ctx.strokeRect(x, y, width, height);
@@ -354,19 +329,24 @@
                             ctx.font = '20px Montserrat';
                             ctx.textAlign = 'left';
                             ctx.fillText(cylinderType.name, x, y > 10 ? y - 5 : 10);
+                            
+                            showMessage(`Cilindro detectado: **${cylinderType.name}**. Deseja adicionar à contagem?`, true);
                         }
                     }
                 });
+                
+                if (!foundCylinder) {
+                    hideMessage(); // Esconde a mensagem de processamento
+                    showMessage("Nenhum cilindro detectado. Por favor, posicione melhor a câmera e tente novamente.");
+                }
             };
-
+            
             const classifyCylinder = (x, y, width, height, ctx) => {
-                // Diminui o bbox para evitar bordas (só 5% de cada lado)
                 const innerX = x + width * 0.05;
                 const innerY = y + height * 0.05;
                 const innerWidth = width * 0.9;
                 const innerHeight = height * 0.9;
 
-                // Lê as cores de todas as partes de cor do cilindro
                 for (const gasName in gasColors) {
                     const gas = gasColors[gasName];
                     let allPartsMatch = true;
@@ -379,7 +359,6 @@
                     });
 
                     if (allPartsMatch) {
-                         recordDetection(gasName);
                          return { name: gasName, hex: gas.hex };
                     }
                 }
@@ -404,13 +383,11 @@
                 }
             };
 
-            // Função para comparar cores, mais robusta com HSL
-            const colorMatches = (c1, c2, tolerance) => {
+            function colorMatches(c1, c2, tolerance) {
                 if (!c1 || !c2) return false;
                 const [h1, s1, l1] = rgbToHsl(c1[0], c1[1], c1[2]);
                 const [h2, s2, l2] = rgbToHsl(c2[0], c2[1], c2[2]);
                 
-                // Compare the hue, saturation and lightness
                 const hueDiff = Math.min(Math.abs(h1 - h2), 360 - Math.abs(h1 - h2));
                 const satDiff = Math.abs(s1 - s2);
                 const lightDiff = Math.abs(l1 - l2);
@@ -418,14 +395,13 @@
                 return hueDiff < tolerance && satDiff < 0.5 && lightDiff < 0.5;
             };
             
-            // Função utilitária para converter RGB para HSL
             function rgbToHsl(r, g, b) {
                 r /= 255, g /= 255, b /= 255;
                 const max = Math.max(r, g, b), min = Math.min(r, g, b);
                 let h, s, l = (max + min) / 2;
 
                 if (max === min) {
-                    h = s = 0; // achromatic
+                    h = s = 0;
                 } else {
                     const d = max - min;
                     s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
@@ -438,54 +414,34 @@
                 }
                 return [h * 360, s, l];
             }
-            
-            let lastDetection = null;
-            let detectionTimeout = null;
-            const recordDetection = (gasName) => {
-                // Evita detecções duplicadas no mesmo momento
-                if (lastDetection === gasName) {
-                    return;
-                }
-                lastDetection = gasName;
-                
-                // Zera a última detecção após 3 segundos
-                clearTimeout(detectionTimeout);
-                detectionTimeout = setTimeout(() => {
-                    lastDetection = null;
-                }, 3000);
 
-                detectionHistory.push(gasName);
-                saveDetections();
-            };
-
-            // Eventos de clique
             startAppBtn.addEventListener('click', () => {
                 welcomeScreen.classList.add('hidden');
                 mainApp.classList.remove('hidden');
                 startApp();
             });
 
-            toggleCameraBtn.addEventListener('click', () => {
-                if (isCameraOn) {
-                    stopCamera();
-                } else {
-                    startCamera();
-                }
-            });
+            scanBtn.addEventListener('click', captureAndProcess);
 
             resetCounterBtn.addEventListener('click', () => {
                 detectionHistory = [];
                 saveDetections();
             });
 
-            deleteLastBtn.addEventListener('click', () => {
-                if (detectionHistory.length > 0) {
-                    detectionHistory.pop();
+            confirmYesBtn.addEventListener('click', () => {
+                if (confirmedGas) {
+                    detectionHistory.push(confirmedGas);
                     saveDetections();
+                    confirmedGas = null;
                 }
+                hideMessage();
             });
 
-            // Carrega a contagem inicial ao abrir o app
+            confirmNoBtn.addEventListener('click', () => {
+                confirmedGas = null;
+                hideMessage();
+            });
+
             updateResults();
         });
     </script>
