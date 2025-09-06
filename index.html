@@ -8,11 +8,14 @@
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap');
         body {
-            font-family: 'Montserrat', sans-serif;
-            background-color: #f3f4f6;
-            color: #1f2937;
+            font-family: 'Poppins', sans-serif;
+            background-color: #0d1117;
+            color: #f0f6fc;
+            overflow-x: hidden;
         }
         .container {
             max-width: 900px;
@@ -20,146 +23,172 @@
         }
         .btn {
             background: linear-gradient(145deg, #004B8D, #003666);
-            @apply px-10 py-5 rounded-full font-bold transition-all duration-300 transform hover:scale-105 shadow-xl;
+            @apply px-10 py-5 rounded-full font-bold text-white transition-all duration-300 transform hover:scale-105 shadow-xl border-2 border-blue-500;
         }
-        .btn-green {
-            background: linear-gradient(145deg, #009048, #00703B);
-            @apply px-6 py-3 rounded-full font-bold transition-all duration-300 transform hover:scale-105 shadow-md;
+        .btn-scan {
+            background: linear-gradient(145deg, #A7C93D, #84A332);
+            @apply px-6 py-3 rounded-full font-bold text-gray-900 transition-all duration-300 transform hover:scale-105 shadow-md;
+            border: 2px solid #D2F05D;
         }
-        .btn-red {
+        .btn-reset {
             background: linear-gradient(145deg, #B82522, #8E1C1A);
-            @apply px-6 py-3 rounded-full font-bold transition-all duration-300 transform hover:scale-105 shadow-md;
+            @apply px-6 py-3 rounded-full font-bold text-white transition-all duration-300 transform hover:scale-105 shadow-md;
+            border: 2px solid #E3302B;
         }
-        .btn:hover {
-            box-shadow: 0 8px 15px rgba(0, 75, 141, 0.4);
+        .logo-svg {
+            animation: pulse-logo 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
         }
-        #camera-section {
-            position: relative;
-            width: 100%;
-            padding-top: 75%; /* 4:3 Aspect Ratio */
+        @keyframes pulse-logo {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
         }
-        #video-feed, #overlay-canvas {
+        .fade-in { animation: fadeIn 1s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .slide-up { animation: slideUp 1s ease-out; }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .result-card {
+            background-color: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            @apply p-4 rounded-xl shadow-lg flex-1 text-left relative overflow-hidden;
+        }
+        .result-card::before {
+            content: '';
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
-            height: 100%;
-            border-radius: 1rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            height: 5px;
+            background: linear-gradient(90deg, #A7C93D, #004B8D, #B82522);
+            animation: stripe 3s infinite linear;
         }
-        .logo-svg {
-            animation: pulse-logo 2s infinite;
-        }
-        @keyframes pulse-logo {
-            0%, 100% {
-                transform: scale(1);
-            }
-            50% {
-                transform: scale(1.05);
-            }
-        }
-        .fade-in {
-            animation: fadeIn 1s ease-in;
-        }
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-            }
-            to {
-                opacity: 1;
-            }
-        }
-        .slide-up {
-            animation: slideUp 1s ease-out;
-        }
-        @keyframes slideUp {
-            from {
-                transform: translateY(20px);
-                opacity: 0;
-            }
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
-        }
-        .result-card {
-            @apply p-4 rounded-xl shadow-lg flex-1 text-left;
+        @keyframes stripe {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
         }
         .spinner {
-            border: 4px solid rgba(0, 0, 0, 0.1);
+            border: 4px solid rgba(255, 255, 255, 0.1);
             width: 36px;
             height: 36px;
             border-radius: 50%;
-            border-left-color: #004B8D;
-            animation: spin 1s ease infinite;
+            border-left-color: #A7C93D;
+            animation: spin 1s linear infinite;
         }
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        #camera-section {
+            position: relative;
+            width: 100%;
+            padding-top: 75%; /* 4:3 Aspect Ratio */
+            border-radius: 1rem;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(167, 201, 61, 0.3);
+        }
+        #video-feed {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        #overlay-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        #scan-loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: none;
+        }
+        .highlight-border {
+            border: 5px solid;
+            animation: glowing-border 1.5s infinite alternate;
+        }
+        @keyframes glowing-border {
+            from { border-color: #A7C93D; box-shadow: 0 0 10px #A7C93D, 0 0 20px #A7C93D; }
+            to { border-color: #004B8D; box-shadow: 0 0 15px #004B8D, 0 0 25px #004B8D; }
+        }
     </style>
 </head>
 <body class="p-4 sm:p-8">
-    <div class="container bg-white rounded-2xl shadow-xl p-6 sm:p-10 text-center">
+    <div class="container bg-gray-900 rounded-2xl shadow-2xl p-6 sm:p-10 text-center border-2 border-gray-700">
         
         <!-- Tela de Boas-vindas -->
         <section id="welcome-screen" class="fade-in flex flex-col items-center justify-center min-h-[50vh]">
             <svg class="logo-svg w-40 h-40 mb-6" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <!-- Cilindro de Gás Estilizado -->
-                <rect x="35" y="10" width="30" height="80" rx="15" fill="#004B8D"/>
-                <!-- Ombro do Cilindro (cor de gás) -->
-                <circle cx="50" cy="18" r="14" fill="#E3302B"/>
+                <!-- Cilindro de Gás Estilizado com Neon Effect -->
+                <rect x="35" y="10" width="30" height="80" rx="15" fill="#004B8D" style="filter: drop-shadow(0 0 5px #004B8D) drop-shadow(0 0 10px #004B8D);"/>
+                <!-- Ombro do Cilindro (cor de gás) com Neon Effect -->
+                <circle cx="50" cy="18" r="14" fill="#E3302B" style="filter: drop-shadow(0 0 5px #E3302B) drop-shadow(0 0 10px #E3302B);"/>
                 <!-- Logo da Messer simplificado -->
                 <path d="M50 40 L40 55 L60 55 L50 40 Z" fill="white"/>
-                <!-- Sombra -->
-                <path d="M65 90 C65 95 60 100 50 100 C40 100 35 95 35 90 L35 85 C40 90 60 90 65 85 L65 90 Z" fill="#D1D5DB" opacity="0.7"/>
             </svg>
-            <h1 class="text-6xl font-extrabold mb-2 slide-up" style="color: #004B8D;">GaScan</h1>
-            <p class="text-xl text-gray-600 mb-8 slide-up">Contador de Cilindros Messer</p>
-            <button id="start-app-btn" class="btn text-white">Iniciar</button>
+            <h1 class="text-6xl font-extrabold mb-2 slide-up" style="color: #A7C93D;">GaScan</h1>
+            <p class="text-xl text-gray-400 mb-8 slide-up">Contador Inteligente de Cilindros Messer</p>
+            <button id="start-app-btn" class="btn text-white">Iniciar Escaneamento</button>
         </section>
 
         <!-- Seção do aplicativo principal -->
         <section id="main-app" class="hidden flex flex-col items-center">
             <header class="mb-8 w-full">
                 <div class="flex justify-center items-center mb-4">
-                    <svg class="w-12 h-12 mr-2" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <svg class="w-12 h-12 mr-2 logo-svg" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <rect x="35" y="10" width="30" height="80" rx="15" fill="#004B8D"/>
                         <circle cx="50" cy="18" r="14" fill="#E3302B"/>
                         <path d="M50 40 L40 55 L60 55 L50 40 Z" fill="white"/>
                     </svg>
-                    <h1 class="text-4xl font-extrabold" style="color: #004B8D;">GaScan</h1>
+                    <h1 class="text-4xl font-extrabold text-white">GaScan</h1>
+                </div>
+                <div class="flex items-center justify-between p-4 bg-gray-800 rounded-xl shadow-inner border border-gray-700">
+                    <h2 class="text-2xl font-bold text-gray-300">Cilindros Escaneados</h2>
+                    <div class="flex items-center gap-2">
+                         <span class="text-4xl font-extrabold" style="color: #A7C93D;"><span id="total-count">0</span></span>
+                         <i class="fa-solid fa-flask text-2xl" style="color: #A7C93D;"></i>
+                    </div>
                 </div>
             </header>
             
-            <section id="camera-section">
+            <section id="camera-section" class="highlight-border">
                 <video id="video-feed" autoplay playsinline></video>
                 <canvas id="overlay-canvas"></canvas>
+                <div id="scan-loading" class="flex items-center flex-col p-4 bg-gray-800 bg-opacity-80 rounded-xl">
+                    <div class="spinner"></div>
+                    <p class="mt-2 text-white">Analisando...</p>
+                </div>
             </section>
             
-            <div class="flex flex-col sm:flex-row gap-4 mt-4 w-full justify-center">
-                <button id="scan-btn" class="btn-green text-white">Escanear Cilindro</button>
-                <button id="reset-counter-btn" class="btn-red text-white">Reiniciar Contagem</button>
+            <div class="flex flex-col sm:flex-row gap-4 mt-8 w-full justify-center">
+                <button id="scan-btn" class="btn-scan text-white">
+                    <i class="fa-solid fa-camera mr-2"></i> Escanear Cilindro
+                </button>
+                <button id="reset-counter-btn" class="btn-reset text-white">
+                    <i class="fa-solid fa-arrows-rotate mr-2"></i> Reiniciar Contagem
+                </button>
             </div>
     
             <section id="results-section" class="mt-8 w-full">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-2xl font-bold" style="color: #004B8D;">Contagem em Tempo Real</h2>
-                    <h2 class="text-2xl font-bold" style="color: #004B8D;">Total: <span id="total-count">0</span></h2>
-                </div>
+                <h2 class="text-xl font-bold text-gray-300 mb-4">Resultados da Contagem</h2>
                 <div id="results-list" class="flex flex-col sm:flex-row flex-wrap justify-center items-stretch gap-4"></div>
             </section>
         </section>
 
         <!-- Modal de Confirmação e Mensagens -->
-        <div id="message-box" class="fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center p-4 z-50 hidden">
-            <div class="bg-white p-8 rounded-xl shadow-2xl max-w-sm text-center">
-                <p id="message-text" class="text-lg font-medium text-gray-800 mb-6 flex justify-center items-center gap-2"></p>
+        <div id="message-box" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50 hidden">
+            <div class="bg-gray-800 p-8 rounded-xl shadow-2xl max-w-sm text-center border border-gray-700">
+                <p id="message-text" class="text-lg font-medium text-gray-200 mb-6 flex justify-center items-center gap-2"></p>
                 <div id="confirm-buttons" class="flex gap-4 justify-center hidden">
-                    <button id="confirm-yes-btn" class="btn-green w-1/2 text-white">Sim</button>
-                    <button id="confirm-no-btn" class="btn-red w-1/2 text-white">Não</button>
+                    <button id="confirm-yes-btn" class="btn-scan w-1/2 text-white">Sim</button>
+                    <button id="confirm-no-btn" class="btn-reset w-1/2 text-white">Não</button>
                 </div>
-                <button id="message-close-btn" class="btn w-full" style="background-color: #004B8D; color: white;">OK</button>
+                <button id="message-close-btn" class="btn-scan w-full">OK</button>
             </div>
         </div>
     </div>
@@ -179,11 +208,11 @@
             const messageText = document.getElementById('message-text');
             const messageCloseBtn = document.getElementById('message-close-btn');
             const confirmButtons = document.getElementById('confirm-buttons');
-            const confirmYesBtn = document = document.getElementById('confirm-yes-btn');
+            const confirmYesBtn = document.getElementById('confirm-yes-btn');
             const confirmNoBtn = document.getElementById('confirm-no-btn');
             const totalCountSpan = document.getElementById('total-count');
+            const scanLoading = document.getElementById('scan-loading');
 
-            // VOCÊ DEVE INSERIR SUA CHAVE DE API AQUI PARA QUE O APP FUNCIONE.
             const apiKey = "AIzaSyCwadVjCBih0WnbPeFagecSghPnn400yjw";
             const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`;
 
@@ -193,6 +222,7 @@
             let confirmedGas = null;
 
             let detectionHistory = JSON.parse(localStorage.getItem('gascan_detections')) || [];
+            let isScanning = false;
 
             const gasColors = {
                 'Oxigênio (Industrial)': '#000000',
@@ -213,7 +243,7 @@
                 'Hidrogênio': '#9CA3AF',
                 'Propano': '#6B7280',
                 'Etileno': '#525252',
-                'GOURMET®': '#A7C93D', // Adicionado com base na pesquisa
+                'GOURMET®': '#A7C93D',
                 'Hexafluoreto de enxofre': '#6D427B',
                 'Krypton': '#006B3C',
                 'Neon': '#F2C335',
@@ -225,7 +255,6 @@
                 'Mistura Argônio/CO2/N2': '#A7C93D'
             };
             
-
             const showMessage = (text, showConfirm = false, showSpinner = false) => {
                 messageText.innerHTML = '';
                 if (showSpinner) {
@@ -260,9 +289,9 @@
                 for (const gas in counts) {
                     if (counts[gas] > 0) {
                         const resultItem = document.createElement('div');
-                        resultItem.className = 'result-card flex flex-col items-center justify-center min-w-[150px]';
+                        resultItem.className = 'result-card flex flex-col items-center justify-center min-w-[150px] transform hover:scale-105 transition-transform duration-300';
                         
-                        const gasColor = gasColors[gas] ? gasColors[gas] : '#4B5563';
+                        const gasColor = gasColors[gas] || '#4B5563';
                         const textColor = gasColor === '#C5C4BF' || gasColor === '#FFFFFF' ? '#1f2937' : '#ffffff';
                         
                         resultItem.style.backgroundColor = gasColor;
@@ -309,9 +338,9 @@
 
             const startApp = async () => {
                 if (!modelLoaded) {
-                    showMessage("Carregando o modelo de detecção de objetos. Por favor, aguarde...", false, true);
+                    showMessage("Carregando modelo de IA. Por favor, aguarde...", false, true);
                     try {
-                        model = await cocoSsd.load();
+                        model = await cocoSsd.load(); // Mantido para possível uso futuro de detecção de objetos
                         modelLoaded = true;
                         hideMessage();
                         startCamera();
@@ -326,17 +355,17 @@
             };
 
             const captureAndProcess = async () => {
-                if (!modelLoaded) {
-                    showMessage("O modelo ainda não foi carregado. Por favor, aguarde.");
+                if (!modelLoaded || isScanning) {
                     return;
                 }
                 if (video.readyState !== 4) {
                     showMessage("A câmera não está pronta. Tente novamente em instantes.");
                     return;
                 }
-                
-                showMessage("Processando imagem com IA avançada...", false, true);
 
+                isScanning = true;
+                scanLoading.style.display = 'flex';
+                
                 const ctx = overlayCanvas.getContext('2d');
                 ctx.drawImage(video, 0, 0, overlayCanvas.width, overlayCanvas.height);
                 
@@ -344,38 +373,38 @@
                 
                 const detailedPrompt = `Com base na norma brasileira (ABNT NBR 12791) e no catálogo completo da Messer Gases, identifique o tipo de gás com base na cor da calota do cilindro. A identificação deve ser rigorosa e precisa.
 
-**Gases Medicinais:**
-- **Oxigênio Medicinal:** Calota **branca**.
-- **Óxido Nitroso Medicinal:** Calota **azul-marinho**.
-- **Ar Medicinal Comprimido:** Calota **azul-marada** com anel **branco**.
+                **Gases Medicinais:**
+                - **Oxigênio Medicinal:** Calota **branca**.
+                - **Óxido Nitroso Medicinal:** Calota **azul-marinho**.
+                - **Ar Medicinal Comprimido:** Calota **azul-marada** com anel **branco**.
 
-**Gases Industriais:**
-- **Acetileno:** Calota **vermelha**.
-- **Argônio:** Calota **marrom**.
-- **Dióxido de Carbono (CO2):** Calota **cinza**.
-- **Hélio:** Calota **laranja**.
-- **Hidrogênio:** Calota **cinza-escuro**.
-- **Nitrogênio:** Calota **cinza-clara**.
-- **Oxigênio (Industrial):** Calota **preta**.
-- **Propano:** Calota **cinza-clara** com uma faixa **laranja**.
-- **Etileno:** Calota **vermelho-vinho**.
+                **Gases Industriais:**
+                - **Acetileno:** Calota **vermelha**.
+                - **Argônio:** Calota **marrom**.
+                - **Dióxido de Carbono (CO2):** Calota **cinza**.
+                - **Hélio:** Calota **laranja**.
+                - **Hidrogênio:** Calota **cinza-escuro**.
+                - **Nitrogênio:** Calota **cinza-clara**.
+                - **Oxigênio (Industrial):** Calota **preta**.
+                - **Propano:** Calota **cinza-clara** com uma faixa **laranja**.
+                - **Etileno:** Calota **vermelho-vinho**.
 
-**Gases Especiais e Misturas (incluindo Gourmet):**
-- **GOURMET® (Misturas CO2/N2):** Calota **verde-limão** ou verde **Messer**.
-- **Argônio Ultra Puro:** Calota **marrom** com uma faixa **branca**.
-- **Hexafluoreto de Enxofre:** Calota **roxa**.
-- **Krypton:** Calota **verde-esmeralda**.
-- **Neon:** Calota **amarela-sol**.
-- **Xenon:** Calota **azul-petróleo**.
-- **Corte Lítio:** Calota **vermelho-cobre**.
-- **Corte Alumínio:** Calota **laranja**.
-- **Mistura Carbogênica (CO2/Argônio):** Calota **verde-limão** ou verde **Messer**.
-- **Mistura CO2/N2:** Calota **verde-limão** ou verde **Messer**.
-- **Mistura Argônio/Hélio:** Calota **marrom** com uma faixa **laranja**.
-- **Mistura Argônio/CO2/N2:** Calota **verde-limão** ou verde **Messer**.
+                **Gases Especiais e Misturas (incluindo Gourmet):**
+                - **GOURMET® (Misturas CO2/N2):** Calota **verde-limão** ou verde **Messer**.
+                - **Argônio Ultra Puro:** Calota **marrom** com uma faixa **branca**.
+                - **Hexafluoreto de Enxofre:** Calota **roxa**.
+                - **Krypton:** Calota **verde-esmeralda**.
+                - **Neon:** Calota **amarela-sol**.
+                - **Xenon:** Calota **azul-petróleo**.
+                - **Corte Lítio:** Calota **vermelho-cobre**.
+                - **Corte Alumínio:** Calota **laranja**.
+                - **Mistura Carbogênica (CO2/Argônio):** Calota **verde-limão** ou verde **Messer**.
+                - **Mistura CO2/N2:** Calota **verde-limão** ou verde **Messer**.
+                - **Mistura Argônio/Hélio:** Calota **marrom** com uma faixa **laranja**.
+                - **Mistura Argônio/CO2/N2:** Calota **verde-limão** ou verde **Messer**.
 
-**Instrução de precisão:** Olhe atentamente a cor da calota do cilindro. Ignorando a iluminação, qual das cores e gases acima melhor corresponde?
-Responda **apenas com um objeto JSON** com duas chaves: "gas_type" (o tipo de gás) e "confidence" (o nível de confiança em uma escala de 0 a 1). O valor de "gas_type" deve ser um dos seguintes: ${Object.keys(gasColors).join(', ')}. Exemplo: {"gas_type": "GOURMET®", "confidence": 0.98}.`;
+                **Instrução de precisão:** Olhe atentamente a cor da calota do cilindro. Ignorando a iluminação, qual das cores e gases acima melhor corresponde?
+                Responda **apenas com um objeto JSON** com duas chaves: "gas_type" (o tipo de gás) e "confidence" (o nível de confiança em uma escala de 0 a 1). O valor de "gas_type" deve ser um dos seguintes: ${Object.keys(gasColors).join(', ')}. Exemplo: {"gas_type": "GOURMET®", "confidence": 0.98}.`;
                 
                 try {
                     const response = await fetch(API_URL, {
@@ -405,6 +434,8 @@ Responda **apenas com um objeto JSON** com duas chaves: "gas_type" (o tipo de g�
                     if (parsedResult && parsedResult.gas_type && gasColors.hasOwnProperty(parsedResult.gas_type)) {
                         confirmedGas = parsedResult.gas_type;
                         const confidence = Math.round(parsedResult.confidence * 100);
+                        isScanning = false;
+                        scanLoading.style.display = 'none';
                         showMessage(`Cilindro detectado: **${confirmedGas}** (Confiança: ${confidence}%). Deseja adicionar à contagem?`, true);
                     } else {
                         throw new Error('Formato de resposta inválido ou gás não reconhecido.');
@@ -412,6 +443,8 @@ Responda **apenas com um objeto JSON** com duas chaves: "gas_type" (o tipo de g�
 
                 } catch (err) {
                     console.error("Erro ao chamar a API de Visão: ", err);
+                    isScanning = false;
+                    scanLoading.style.display = 'none';
                     showMessage("Erro na análise. Verifique sua chave de API, sua conexão ou tente novamente. " + err.message);
                 }
             };
